@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -184,6 +185,82 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
     );
   }
 
+  Future<void> _handleSaveFile() async {
+    if (_renderedSvg.trim().isEmpty) {
+      setState(() {
+        _errorText = '当前没有可保存的 SVG 内容。';
+      });
+      return;
+    }
+
+    final saveLocation = await getSaveLocation(
+      suggestedName: _buildSuggestedFileName('.svg'),
+      acceptedTypeGroups: const <XTypeGroup>[
+        XTypeGroup(
+          label: 'svg',
+          extensions: <String>['svg'],
+          mimeTypes: <String>['image/svg+xml'],
+        ),
+      ],
+    );
+
+    if (saveLocation == null) {
+      return;
+    }
+
+    try {
+      await File(saveLocation.path).writeAsString(_renderedSvg);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorText = null;
+      });
+      _showHud('另存为成功');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorText = '保存 SVG 文件失败，请重试。';
+      });
+    }
+  }
+
+  Future<void> _handleOpenInBrowser() async {
+    if (_renderedSvg.trim().isEmpty) {
+      setState(() {
+        _errorText = '当前没有可在浏览器中打开的 SVG 内容。';
+      });
+      return;
+    }
+
+    try {
+      final previewFile = await _createBrowserPreviewFile();
+      await _openFileInBrowser(previewFile.path);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorText = null;
+      });
+      _showHud('已在浏览器打开');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorText = '浏览器打开失败，请重试。';
+      });
+    }
+  }
+
   void _applySvgSource(
     String source, {
     required String historyLabel,
@@ -302,6 +379,91 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
     return '$hour:$minute:$second';
   }
 
+  String _buildSuggestedFileName(String extension) {
+    final now = DateTime.now();
+    final year = now.year.toString().padLeft(4, '0');
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    final hour = now.hour.toString().padLeft(2, '0');
+    final minute = now.minute.toString().padLeft(2, '0');
+    final second = now.second.toString().padLeft(2, '0');
+    return 'svg_preview_$year$month$day$hour$minute$second$extension';
+  }
+
+  Future<File> _createBrowserPreviewFile() async {
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'mytools_svg_preview_',
+    );
+    final previewFile = File(
+      '${tempDirectory.path}/${_buildSuggestedFileName('.html')}',
+    );
+
+    final htmlContent = '''
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Preview</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f3f6f8;
+      }
+      .preview {
+        width: min(88vw, 960px);
+        height: min(88vh, 960px);
+        padding: 24px;
+        box-sizing: border-box;
+        border: 1px solid #d8e2e8;
+        border-radius: 24px;
+        background: #ffffff;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      }
+      .preview svg {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview">
+      $_renderedSvg
+    </div>
+  </body>
+</html>
+''';
+
+    await previewFile.writeAsString(htmlContent);
+    return previewFile;
+  }
+
+  Future<void> _openFileInBrowser(String path) async {
+    late final ProcessResult result;
+
+    if (Platform.isMacOS) {
+      result = await Process.run('open', <String>[path]);
+    } else if (Platform.isWindows) {
+      result = await Process.run('cmd', <String>['/c', 'start', '', path]);
+    } else if (Platform.isLinux) {
+      result = await Process.run('xdg-open', <String>[path]);
+    } else {
+      throw UnsupportedError('当前平台暂不支持浏览器打开。');
+    }
+
+    if (result.exitCode != 0) {
+      throw ProcessException(
+        result.pid.toString(),
+        <String>[path],
+        result.stderr.toString(),
+        result.exitCode,
+      );
+    }
+  }
+
   void _handlePreviewZoomIn() {
     _updatePreviewScale(_previewScale + _previewScaleStep);
   }
@@ -392,6 +554,14 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
                         OutlinedButton(
                           onPressed: _handleClear,
                           child: const Text('清空'),
+                        ),
+                        OutlinedButton(
+                          onPressed: _renderedSvg.isEmpty ? null : _handleSaveFile,
+                          child: const Text('另存为'),
+                        ),
+                        OutlinedButton(
+                          onPressed: _renderedSvg.isEmpty ? null : _handleOpenInBrowser,
+                          child: const Text('浏览器打开'),
                         ),
                       ],
                     ),
