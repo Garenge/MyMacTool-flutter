@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'ipa_unpack_page.dart';
+import 'lottie_preview_page.dart';
+import 'radix_converter_page.dart';
 import 'svg_preview_page.dart';
 
-enum ToolItem { svgPreview }
+enum ToolItem { svgPreview, radixConverter, lottiePreview, ipaUnpack }
 
 class _ToolDefinition {
   const _ToolDefinition({
@@ -21,6 +24,21 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.svgPreview,
     title: 'SVG预览',
     icon: Icons.image_search_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.radixConverter,
+    title: '进制换算',
+    icon: Icons.calculate_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.lottiePreview,
+    title: 'Lottie预览',
+    icon: Icons.movie_filter_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.ipaUnpack,
+    title: 'IPA解析',
+    icon: Icons.folder_zip_rounded,
   ),
 ];
 
@@ -84,6 +102,12 @@ class _ToolShellPageState extends State<ToolShellPage> {
     switch (_selectedTool) {
       case ToolItem.svgPreview:
         return const SvgPreviewPage();
+      case ToolItem.radixConverter:
+        return const RadixConverterPage();
+      case ToolItem.lottiePreview:
+        return const LottiePreviewPage();
+      case ToolItem.ipaUnpack:
+        return const IpaUnpackPage();
     }
   }
 }
@@ -140,10 +164,12 @@ class _ToolSidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foregroundColor =
-        selected ? const Color(0xFF11212D) : const Color(0xFFE5EDF3);
-    final backgroundColor =
-        selected ? const Color(0xFFEAF7F6) : const Color(0xFF1A2E3B);
+    final foregroundColor = selected
+        ? const Color(0xFF11212D)
+        : const Color(0xFFE5EDF3);
+    final backgroundColor = selected
+        ? const Color(0xFFEAF7F6)
+        : const Color(0xFF1A2E3B);
 
     return Material(
       color: backgroundColor,

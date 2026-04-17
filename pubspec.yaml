@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  archive: ^4.0.7
   flutter:
     sdk: flutter
 
@@ -37,6 +38,7 @@ dependencies:
   desktop_drop: ^0.7.0
   file_selector: ^1.0.3
   flutter_svg: ^2.2.4
+  lottie: ^3.3.1
 
 dev_dependencies:
   flutter_test:
