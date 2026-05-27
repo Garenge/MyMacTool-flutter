@@ -28,6 +28,9 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持秒 / 毫秒时间戳、本地时间、UTC 时间、ISO 时间互转
   - 支持当前时间快捷填充
   - 支持单项结果复制
+- 颜色转换
+  - 支持 HEX、ARGB HEX、RGB、RGBA、Flutter `Color(0x...)` 互转
+  - 支持颜色预览、通道值展示、单项结果复制
 - Lottie 预览
   - 支持选择多个 JSON 文件或拖拽导入
   - 支持多动画叠加预览、选择、反选、清空
@@ -62,6 +65,7 @@ lib/
     radix_converter_page.dart
     svg_preview_page.dart
     timestamp_converter_page.dart
+    color_converter_page.dart
     tool_shell_page.dart
 ```
 
@@ -84,9 +88,9 @@ lib/
 
 推荐优先级：
 
-1. 颜色格式转换工具：适合移动端 UI 开发场景
-2. Hash 计算工具：可直接增强编码转换能力
-3. IPA 信息查看增强：沿着已有 IPA 解析继续深化，能形成特色
+1. Hash 计算工具：可直接增强编码转换能力
+2. IPA 信息查看增强：沿着已有 IPA 解析继续深化，能形成特色
+3. 图片尺寸 / 文件信息查看：适合作为设计协作与批处理入口
 
 ## 本地运行
 

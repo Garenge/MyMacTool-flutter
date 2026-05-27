@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'color_converter_page.dart';
 import 'encoding_converter_page.dart';
 import 'ipa_unpack_page.dart';
 import 'json_formatter_page.dart';
@@ -14,6 +15,7 @@ enum ToolItem {
   encodingConverter,
   jsonFormatter,
   timestampConverter,
+  colorConverter,
   lottiePreview,
   ipaUnpack,
 }
@@ -55,6 +57,11 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.timestampConverter,
     title: '时间戳转换',
     icon: Icons.schedule_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.colorConverter,
+    title: '颜色转换',
+    icon: Icons.palette_rounded,
   ),
   _ToolDefinition(
     tool: ToolItem.lottiePreview,
@@ -136,6 +143,8 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const JsonFormatterPage();
       case ToolItem.timestampConverter:
         return const TimestampConverterPage();
+      case ToolItem.colorConverter:
+        return const ColorConverterPage();
       case ToolItem.lottiePreview:
         return const LottiePreviewPage();
       case ToolItem.ipaUnpack:

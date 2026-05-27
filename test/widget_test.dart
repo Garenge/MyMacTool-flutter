@@ -47,6 +47,7 @@ void main() {
     expect(find.text('编码转换'), findsOneWidget);
     expect(find.text('JSON格式化'), findsOneWidget);
     expect(find.text('时间戳转换'), findsOneWidget);
+    expect(find.text('颜色转换'), findsOneWidget);
     expect(find.text('打开文件'), findsOneWidget);
     expect(find.text('粘贴'), findsOneWidget);
     expect(find.text('确定'), findsOneWidget);
@@ -220,5 +221,49 @@ void main() {
     expect(find.text('0'), findsWidgets);
     expect(find.text('毫秒时间戳'), findsOneWidget);
     expect(find.text('转换完成。'), findsOneWidget);
+  });
+
+  testWidgets('color converter converts hex color to common formats', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await tester.tap(find.text('颜色转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('颜色值'), findsOneWidget);
+    expect(find.text('HEX'), findsNothing);
+
+    await tester.enterText(find.byType(TextField).first, '#0F766E');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('#0F766E', findRichText: true), findsWidgets);
+    expect(find.text('#FF0F766E', findRichText: true), findsOneWidget);
+    expect(find.text('rgb(15, 118, 110)', findRichText: true), findsOneWidget);
+    expect(
+      find.text('rgba(15, 118, 110, 1)', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('Color(0xFF0F766E)', findRichText: true), findsOneWidget);
+    expect(find.text('转换完成。'), findsOneWidget);
+  });
+
+  testWidgets('color converter reports invalid color input', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await tester.tap(find.text('颜色转换'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '#XYZ');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('HEX 颜色只能包含 0-9、A-F。'), findsOneWidget);
   });
 }
