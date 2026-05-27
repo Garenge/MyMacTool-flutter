@@ -21,16 +21,16 @@ void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (methodCall) async {
-      if (methodCall.method == 'Clipboard.getData') {
-        return <String, dynamic>{'text': clipboardSvg};
-      }
+          if (methodCall.method == 'Clipboard.getData') {
+            return <String, dynamic>{'text': clipboardSvg};
+          }
 
-      if (methodCall.method == 'Clipboard.setData') {
-        return null;
-      }
+          if (methodCall.method == 'Clipboard.setData') {
+            return null;
+          }
 
-      return null;
-    });
+          return null;
+        });
   });
 
   tearDown(() {
@@ -44,6 +44,9 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
 
     expect(find.text('SVG预览'), findsOneWidget);
+    expect(find.text('编码转换'), findsOneWidget);
+    expect(find.text('JSON格式化'), findsOneWidget);
+    expect(find.text('时间戳转换'), findsOneWidget);
     expect(find.text('打开文件'), findsOneWidget);
     expect(find.text('粘贴'), findsOneWidget);
     expect(find.text('确定'), findsOneWidget);
@@ -56,10 +59,9 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
 
     final material = tester.widget<Material>(
-      find.ancestor(
-        of: find.text('SVG预览'),
-        matching: find.byType(Material),
-      ).first,
+      find
+          .ancestor(of: find.text('SVG预览'), matching: find.byType(Material))
+          .first,
     );
 
     expect(material.color, const Color(0xFFEAF7F6));
@@ -132,5 +134,91 @@ void main() {
     expect(find.text('粘贴成功'), findsOneWidget);
     expect(find.text('最近记录'), findsOneWidget);
     expect(find.textContaining('剪切板粘贴'), findsOneWidget);
+  });
+
+  testWidgets('encoding converter converts plain text to url encoded text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await tester.tap(find.text('编码转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编码转换'), findsWidgets);
+    expect(find.text('URL'), findsWidgets);
+
+    await tester.enterText(find.byType(TextField).first, 'Hello 世界');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hello%20%E4%B8%96%E7%95%8C'), findsOneWidget);
+  });
+
+  testWidgets('encoding converter converts url encoded text to plain text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await tester.tap(find.text('编码转换'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextField).last,
+      'Hello%20%E4%B8%96%E7%95%8C',
+    );
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hello 世界'), findsOneWidget);
+  });
+
+  testWidgets('json formatter formats compact json text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await tester.tap(find.text('JSON格式化'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('格式化'), findsOneWidget);
+    expect(find.text('压缩'), findsOneWidget);
+    expect(find.text('校验'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, '{"b":2,"a":1}');
+    await tester.tap(find.text('格式化'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('"b": 2'), findsOneWidget);
+    expect(find.text('格式化完成。'), findsOneWidget);
+  });
+
+  testWidgets('json formatter reports invalid json errors', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await tester.tap(find.text('JSON格式化'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '{"name":}');
+    await tester.tap(find.text('校验'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('JSON 解析失败'), findsOneWidget);
+  });
+
+  testWidgets('timestamp converter converts seconds timestamp', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await tester.tap(find.text('时间戳转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前时间'), findsOneWidget);
+    expect(find.text('秒时间戳'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, '0');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('0'), findsWidgets);
+    expect(find.text('毫秒时间戳'), findsOneWidget);
+    expect(find.text('转换完成。'), findsOneWidget);
   });
 }

@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 
+import 'encoding_converter_page.dart';
 import 'ipa_unpack_page.dart';
+import 'json_formatter_page.dart';
 import 'lottie_preview_page.dart';
 import 'radix_converter_page.dart';
 import 'svg_preview_page.dart';
+import 'timestamp_converter_page.dart';
 
-enum ToolItem { svgPreview, radixConverter, lottiePreview, ipaUnpack }
+enum ToolItem {
+  svgPreview,
+  radixConverter,
+  encodingConverter,
+  jsonFormatter,
+  timestampConverter,
+  lottiePreview,
+  ipaUnpack,
+}
 
 class _ToolDefinition {
   const _ToolDefinition({
@@ -29,6 +40,21 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.radixConverter,
     title: '进制换算',
     icon: Icons.calculate_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.encodingConverter,
+    title: '编码转换',
+    icon: Icons.code_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.jsonFormatter,
+    title: 'JSON格式化',
+    icon: Icons.data_object_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.timestampConverter,
+    title: '时间戳转换',
+    icon: Icons.schedule_rounded,
   ),
   _ToolDefinition(
     tool: ToolItem.lottiePreview,
@@ -104,6 +130,12 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const SvgPreviewPage();
       case ToolItem.radixConverter:
         return const RadixConverterPage();
+      case ToolItem.encodingConverter:
+        return const EncodingConverterPage();
+      case ToolItem.jsonFormatter:
+        return const JsonFormatterPage();
+      case ToolItem.timestampConverter:
+        return const TimestampConverterPage();
       case ToolItem.lottiePreview:
         return const LottiePreviewPage();
       case ToolItem.ipaUnpack:
