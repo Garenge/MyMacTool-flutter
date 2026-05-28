@@ -6,18 +6,22 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'ipa_app_info.dart';
+
 class _IpaUnpackRecord {
   const _IpaUnpackRecord({
     required this.id,
     required this.filePath,
     required this.outputDirectoryPath,
     required this.createdAt,
+    this.appInfo,
   });
 
   final String id;
   final String filePath;
   final String outputDirectoryPath;
   final DateTime createdAt;
+  final IpaAppInfo? appInfo;
 }
 
 class IpaUnpackPage extends StatefulWidget {
@@ -40,7 +44,9 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
   String? _outputDirectoryPath;
   String? _statusText;
   String? _errorText;
+  IpaAppInfo? _appInfo;
   final List<_IpaUnpackRecord> _records = <_IpaUnpackRecord>[];
+  final IpaAppInfoParser _appInfoParser = const IpaAppInfoParser();
 
   Future<void> _handlePickFile() async {
     final file = await openFile(
@@ -104,6 +110,9 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
 
     try {
       final outputDirectory = await _extractToTempDirectory(ipaFile);
+      final appInfo = await _appInfoParser.parseFromExtractedDirectory(
+        outputDirectory,
+      );
       await _openDirectory(outputDirectory.path);
 
       if (!mounted) {
@@ -112,13 +121,17 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
 
       setState(() {
         _outputDirectoryPath = outputDirectory.path;
-        _statusText = '解析完成，已自动打开输出目录。';
+        _appInfo = appInfo;
+        _statusText = appInfo == null
+            ? '解析完成，未读取到 Info.plist，已自动打开输出目录。'
+            : '解析完成，已读取应用信息并打开输出目录。';
         _prependRecord(
           _IpaUnpackRecord(
             id: '${DateTime.now().microsecondsSinceEpoch}',
             filePath: path,
             outputDirectoryPath: outputDirectory.path,
             createdAt: DateTime.now(),
+            appInfo: appInfo,
           ),
         );
       });
@@ -220,6 +233,7 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
       setState(() {
         _selectedFilePath = record.filePath;
         _outputDirectoryPath = record.outputDirectoryPath;
+        _appInfo = record.appInfo;
         _statusText = '已重新打开历史解析目录。';
         _errorText = null;
       });
@@ -372,211 +386,253 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
         ),
         const SizedBox(height: 20),
         Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 6,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: DropTarget(
-                        onDragEntered: (_) {
-                          setState(() {
-                            _isDraggingFile = true;
-                          });
-                        },
-                        onDragExited: (_) {
-                          setState(() {
-                            _isDraggingFile = false;
-                          });
-                        },
-                        onDragDone: (DropDoneDetails details) async {
-                          setState(() {
-                            _isDraggingFile = false;
-                          });
-                          await _handleDropFiles(details.files);
-                        },
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final contentWidth = constraints.maxWidth < 1120
+                  ? 1120.0
+                  : constraints.maxWidth;
+
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: contentWidth,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: DropTarget(
+                                onDragEntered: (_) {
+                                  setState(() {
+                                    _isDraggingFile = true;
+                                  });
+                                },
+                                onDragExited: (_) {
+                                  setState(() {
+                                    _isDraggingFile = false;
+                                  });
+                                },
+                                onDragDone: (DropDoneDetails details) async {
+                                  setState(() {
+                                    _isDraggingFile = false;
+                                  });
+                                  await _handleDropFiles(details.files);
+                                },
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF7FAFB),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: borderColor,
+                                      width: _isDraggingFile ? 1.4 : 1,
+                                    ),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 28,
+                                      vertical: 36,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 96,
+                                          height: 96,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFEAF7F6),
+                                            borderRadius: BorderRadius.circular(
+                                              28,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            _isUnpacking
+                                                ? Icons.hourglass_top_rounded
+                                                : Icons.archive_rounded,
+                                            size: 48,
+                                            color: const Color(0xFF0F766E),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 18),
+                                        Text(
+                                          _isUnpacking
+                                              ? '正在解析 IPA...'
+                                              : '拖拽一个 IPA 文件到这里',
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.headlineSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w800,
+                                                color: const Color(0xFF23313C),
+                                              ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          _isUnpacking
+                                              ? '请稍候，完成后会自动打开输出目录。'
+                                              : '也可以点击下方按钮直接选择一个 .ipa 文件。',
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.bodyLarge
+                                              ?.copyWith(
+                                                color: const Color(0xFF607180),
+                                              ),
+                                        ),
+                                        const SizedBox(height: 22),
+                                        FilledButton.icon(
+                                          onPressed: _isUnpacking
+                                              ? null
+                                              : _handlePickFile,
+                                          icon: const Icon(
+                                            Icons.upload_file_rounded,
+                                          ),
+                                          label: const Text('选择IPA文件'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            SizedBox(
+                              width: 340,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF7FAFB),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: const Color(0xFFD8E2E8),
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '当前结果',
+                                        style: theme.textTheme.titleLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                              color: const Color(0xFF23313C),
+                                            ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      _InfoBlock(
+                                        title: '当前文件',
+                                        content:
+                                            _selectedFilePath ?? '尚未选择 IPA 文件',
+                                        actionLabel: '打开目录',
+                                        onTap: _selectedFilePath == null
+                                            ? null
+                                            : _handleOpenCurrentFileDirectory,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      _InfoBlock(
+                                        title: '输出目录',
+                                        content:
+                                            _outputDirectoryPath ??
+                                            '解析完成后会显示在这里',
+                                        actionLabel: '打开目录',
+                                        onTap: _outputDirectoryPath == null
+                                            ? null
+                                            : _handleOpenOutputDirectory,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      _InfoBlock(
+                                        title: '状态',
+                                        content:
+                                            _errorText ?? _statusText ?? '等待操作',
+                                        isError: _errorText != null,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Expanded(
+                                        child: _AppInfoBlock(appInfo: _appInfo),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      SizedBox(
+                        width: 360,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: const Color(0xFFF7FAFB),
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: borderColor,
-                              width: _isDraggingFile ? 1.4 : 1,
-                            ),
+                            border: Border.all(color: const Color(0xFFD8E2E8)),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 28,
-                              vertical: 36,
-                            ),
+                            padding: const EdgeInsets.all(20),
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: 96,
-                                  height: 96,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEAF7F6),
-                                    borderRadius: BorderRadius.circular(28),
-                                  ),
-                                  child: Icon(
-                                    _isUnpacking
-                                        ? Icons.hourglass_top_rounded
-                                        : Icons.archive_rounded,
-                                    size: 48,
-                                    color: const Color(0xFF0F766E),
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
                                 Text(
-                                  _isUnpacking
-                                      ? '正在解析 IPA...'
-                                      : '拖拽一个 IPA 文件到这里',
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.headlineSmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        color: const Color(0xFF23313C),
-                                      ),
+                                  '解析记录',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF23313C),
+                                  ),
                                 ),
                                 const SizedBox(height: 10),
-                                Text(
-                                  _isUnpacking
-                                      ? '请稍候，完成后会自动打开输出目录。'
-                                      : '也可以点击下方按钮直接选择一个 .ipa 文件。',
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: const Color(0xFF607180),
-                                  ),
-                                ),
-                                const SizedBox(height: 22),
-                                FilledButton.icon(
-                                  onPressed: _isUnpacking
-                                      ? null
-                                      : _handlePickFile,
-                                  icon: const Icon(Icons.upload_file_rounded),
-                                  label: const Text('选择IPA文件'),
+                                Expanded(
+                                  child: _records.isEmpty
+                                      ? const _RecordEmptyState()
+                                      : ListView.separated(
+                                          itemCount: _records.length,
+                                          separatorBuilder:
+                                              (
+                                                BuildContext context,
+                                                int index,
+                                              ) => const SizedBox(height: 10),
+                                          itemBuilder:
+                                              (
+                                                BuildContext context,
+                                                int index,
+                                              ) {
+                                                final record = _records[index];
+
+                                                return _IpaRecordCard(
+                                                  record: record,
+                                                  isDirectoryAvailable:
+                                                      _directoryExists(
+                                                        record
+                                                            .outputDirectoryPath,
+                                                      ),
+                                                  formatTime: _formatTimestamp,
+                                                  fileNameOf: _fileNameOf,
+                                                  onCopyDirectory: () {
+                                                    _handleCopyRecordDirectory(
+                                                      record,
+                                                    );
+                                                  },
+                                                  onOpenDirectory: () {
+                                                    _handleOpenRecordDirectory(
+                                                      record,
+                                                    );
+                                                  },
+                                                );
+                                              },
+                                        ),
                                 ),
                               ],
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    SizedBox(
-                      width: 340,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7FAFB),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFD8E2E8)),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '当前结果',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF23313C),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              _InfoBlock(
-                                title: '当前文件',
-                                content: _selectedFilePath ?? '尚未选择 IPA 文件',
-                                actionLabel: '打开目录',
-                                onTap: _selectedFilePath == null
-                                    ? null
-                                    : _handleOpenCurrentFileDirectory,
-                              ),
-                              const SizedBox(height: 12),
-                              _InfoBlock(
-                                title: '输出目录',
-                                content: _outputDirectoryPath ?? '解析完成后会显示在这里',
-                                actionLabel: '打开目录',
-                                onTap: _outputDirectoryPath == null
-                                    ? null
-                                    : _handleOpenOutputDirectory,
-                              ),
-                              const SizedBox(height: 12),
-                              _InfoBlock(
-                                title: '状态',
-                                content: _errorText ?? _statusText ?? '等待操作',
-                                isError: _errorText != null,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 20),
-              SizedBox(
-                width: 360,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF7FAFB),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFD8E2E8)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '解析记录',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF23313C),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Expanded(
-                          child: _records.isEmpty
-                              ? const _RecordEmptyState()
-                              : ListView.separated(
-                                  itemCount: _records.length,
-                                  separatorBuilder:
-                                      (BuildContext context, int index) =>
-                                          const SizedBox(height: 10),
-                                  itemBuilder:
-                                      (BuildContext context, int index) {
-                                        final record = _records[index];
-
-                                        return _IpaRecordCard(
-                                          record: record,
-                                          isDirectoryAvailable:
-                                              _directoryExists(
-                                                record.outputDirectoryPath,
-                                              ),
-                                          formatTime: _formatTimestamp,
-                                          fileNameOf: _fileNameOf,
-                                          onCopyDirectory: () {
-                                            _handleCopyRecordDirectory(record);
-                                          },
-                                          onOpenDirectory: () {
-                                            _handleOpenRecordDirectory(record);
-                                          },
-                                        );
-                                      },
-                                ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ],
@@ -644,6 +700,19 @@ class _IpaRecordCard extends StatelessWidget {
                 height: 1.5,
               ),
             ),
+            if (record.appInfo?.hasAnyValue ?? false) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${record.appInfo!.valueOrPlaceholder(record.appInfo!.appName)} / ${record.appInfo!.valueOrPlaceholder(record.appInfo!.bundleIdentifier)}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF31414F),
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Row(
               children: [
@@ -670,6 +739,126 @@ class _IpaRecordCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AppInfoBlock extends StatelessWidget {
+  const _AppInfoBlock({required this.appInfo});
+
+  final IpaAppInfo? appInfo;
+
+  @override
+  Widget build(BuildContext context) {
+    final info = appInfo;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD8E2E8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '应用信息',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: const Color(0xFF31414F),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: info == null
+                  ? const _AppInfoEmptyState()
+                  : ListView(
+                      children: [
+                        _AppInfoRow(
+                          label: '名称',
+                          value: info.valueOrPlaceholder(info.appName),
+                        ),
+                        _AppInfoRow(
+                          label: 'Bundle ID',
+                          value: info.valueOrPlaceholder(info.bundleIdentifier),
+                        ),
+                        _AppInfoRow(
+                          label: '版本',
+                          value: info.valueOrPlaceholder(info.shortVersion),
+                        ),
+                        _AppInfoRow(
+                          label: 'Build',
+                          value: info.valueOrPlaceholder(info.buildNumber),
+                        ),
+                        _AppInfoRow(
+                          label: '最低系统',
+                          value: info.valueOrPlaceholder(info.minimumOsVersion),
+                        ),
+                        _AppInfoRow(
+                          label: '可执行文件',
+                          value: info.valueOrPlaceholder(info.executableName),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppInfoEmptyState extends StatelessWidget {
+  const _AppInfoEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        '解析 IPA 后会显示 App 名称、Bundle ID、版本号等信息。',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: const Color(0xFF708190),
+          height: 1.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _AppInfoRow extends StatelessWidget {
+  const _AppInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: const Color(0xFF708190),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          SelectableText(
+            value,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF31414F),
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }
