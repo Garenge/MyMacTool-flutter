@@ -40,6 +40,9 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
 - JWT 解析
   - 支持 Header / Payload 解码和 JSON 格式化展示
   - 支持 exp、iat、nbf 本地时间转换和过期状态提示
+- 二维码工具
+  - 支持输入字符串生成二维码，可选择生成前 URL 编码
+  - 支持粘贴、选择或拖拽图片解析二维码内容
 - Lottie 预览
   - 支持选择多个 JSON 文件或拖拽导入
   - 支持多动画叠加预览、选择、反选、清空
@@ -62,6 +65,9 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
 - `archive`：IPA ZIP 解包
 - `crypto`：Hash 摘要计算
 - `image`：图片信息解析
+- `qr_flutter`：二维码生成
+- `pasteboard`：剪贴板图片读取
+- `zxing2`：二维码图片解析
 
 ## 项目结构
 
@@ -79,6 +85,7 @@ lib/
     json_formatter_page.dart
     jwt_decoder_page.dart
     lottie_preview_page.dart
+    qr_code_tool_page.dart
     radix_converter_page.dart
     svg_preview_page.dart
     timestamp_converter_page.dart

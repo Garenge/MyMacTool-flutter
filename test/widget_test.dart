@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:mytools/app.dart';
 
@@ -67,6 +68,7 @@ void main() {
     expect(find.text('Hash计算'), findsOneWidget);
     expect(find.text('图片信息'), findsOneWidget);
     expect(find.text('JWT解析'), findsOneWidget);
+    expect(find.text('二维码工具'), findsOneWidget);
     expect(find.text('打开文件'), findsOneWidget);
     expect(find.text('粘贴'), findsOneWidget);
     expect(find.text('确定'), findsOneWidget);
@@ -404,5 +406,60 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('JWT 需要包含 Header、Payload、Signature 三段。'), findsOneWidget);
+  });
+
+  testWidgets('qr code tool generates code with optional url encoding', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '二维码工具');
+
+    expect(find.text('生成二维码'), findsWidgets);
+    expect(find.text('解析二维码'), findsOneWidget);
+    expect(find.text('生成前先 URL 编码'), findsOneWidget);
+    expect(find.text('支持粘贴、拖拽或选择二维码图片。'), findsNothing);
+    expect(find.text('输入字符串后会在这里生成二维码。'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'Hello 世界');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QrImageView), findsOneWidget);
+
+    await tester.tap(find.text('生成前先 URL 编码'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QrImageView), findsOneWidget);
+  });
+
+  testWidgets('qr code tool switches to decode tab', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '二维码工具');
+
+    await tester.tap(find.text('解析二维码'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('支持粘贴、拖拽或选择二维码图片。'), findsOneWidget);
+    expect(find.text('解析结果'), findsOneWidget);
+    expect(find.text('粘贴解析'), findsOneWidget);
+    expect(find.text('输入字符串后会在这里生成二维码。'), findsNothing);
+  });
+
+  testWidgets('qr code tool reports empty generated copy', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '二维码工具');
+
+    await tester.tap(find.text('复制内容'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('请先输入要生成二维码的内容。'), findsOneWidget);
   });
 }
