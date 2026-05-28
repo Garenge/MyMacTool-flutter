@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'color_converter_page.dart';
 import 'encoding_converter_page.dart';
+import 'hash_calculator_page.dart';
+import 'image_info_page.dart';
 import 'ipa_unpack_page.dart';
 import 'json_formatter_page.dart';
+import 'jwt_decoder_page.dart';
 import 'lottie_preview_page.dart';
 import 'radix_converter_page.dart';
 import 'svg_preview_page.dart';
@@ -16,6 +19,9 @@ enum ToolItem {
   jsonFormatter,
   timestampConverter,
   colorConverter,
+  hashCalculator,
+  imageInfo,
+  jwtDecoder,
   lottiePreview,
   ipaUnpack,
 }
@@ -62,6 +68,21 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.colorConverter,
     title: '颜色转换',
     icon: Icons.palette_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.hashCalculator,
+    title: 'Hash计算',
+    icon: Icons.tag_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.imageInfo,
+    title: '图片信息',
+    icon: Icons.photo_size_select_large_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.jwtDecoder,
+    title: 'JWT解析',
+    icon: Icons.key_rounded,
   ),
   _ToolDefinition(
     tool: ToolItem.lottiePreview,
@@ -145,6 +166,12 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const TimestampConverterPage();
       case ToolItem.colorConverter:
         return const ColorConverterPage();
+      case ToolItem.hashCalculator:
+        return const HashCalculatorPage();
+      case ToolItem.imageInfo:
+        return const ImageInfoPage();
+      case ToolItem.jwtDecoder:
+        return const JwtDecoderPage();
       case ToolItem.lottiePreview:
         return const LottiePreviewPage();
       case ToolItem.ipaUnpack:
@@ -171,20 +198,20 @@ class _ToolSidebar extends StatelessWidget {
         color: const Color(0xFF11212D),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final tool in _toolDefinitions) ...[
-            _ToolSidebarItem(
-              title: tool.title,
-              icon: tool.icon,
-              selected: selectedTool == tool.tool,
-              onTap: () => onToolSelected(tool.tool),
-            ),
+      child: ListView.separated(
+        itemCount: _toolDefinitions.length,
+        separatorBuilder: (BuildContext context, int index) =>
             const SizedBox(height: 10),
-          ],
-          const Spacer(),
-        ],
+        itemBuilder: (BuildContext context, int index) {
+          final tool = _toolDefinitions[index];
+
+          return _ToolSidebarItem(
+            title: tool.title,
+            icon: tool.icon,
+            selected: selectedTool == tool.tool,
+            onTap: () => onToolSelected(tool.tool),
+          );
+        },
       ),
     );
   }

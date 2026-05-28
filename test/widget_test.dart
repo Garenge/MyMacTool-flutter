@@ -18,6 +18,22 @@ void main() {
   const clipboardSvg =
       '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#0F766E"/></svg>';
 
+  Future<void> selectTool(WidgetTester tester, String title) async {
+    final toolFinder = find.text(title);
+
+    if (toolFinder.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        toolFinder,
+        80,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(toolFinder);
+    await tester.pumpAndSettle();
+  }
+
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (methodCall) async {
@@ -48,6 +64,9 @@ void main() {
     expect(find.text('JSON格式化'), findsOneWidget);
     expect(find.text('时间戳转换'), findsOneWidget);
     expect(find.text('颜色转换'), findsOneWidget);
+    expect(find.text('Hash计算'), findsOneWidget);
+    expect(find.text('图片信息'), findsOneWidget);
+    expect(find.text('JWT解析'), findsOneWidget);
     expect(find.text('打开文件'), findsOneWidget);
     expect(find.text('粘贴'), findsOneWidget);
     expect(find.text('确定'), findsOneWidget);
@@ -141,8 +160,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyToolsApp());
-    await tester.tap(find.text('编码转换'));
-    await tester.pumpAndSettle();
+    await selectTool(tester, '编码转换');
 
     expect(find.text('编码转换'), findsWidgets);
     expect(find.text('URL'), findsWidgets);
@@ -158,8 +176,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyToolsApp());
-    await tester.tap(find.text('编码转换'));
-    await tester.pumpAndSettle();
+    await selectTool(tester, '编码转换');
 
     await tester.enterText(
       find.byType(TextField).last,
@@ -175,8 +192,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyToolsApp());
-    await tester.tap(find.text('JSON格式化'));
-    await tester.pumpAndSettle();
+    await selectTool(tester, 'JSON格式化');
 
     expect(find.text('格式化'), findsOneWidget);
     expect(find.text('压缩'), findsOneWidget);
@@ -194,8 +210,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyToolsApp());
-    await tester.tap(find.text('JSON格式化'));
-    await tester.pumpAndSettle();
+    await selectTool(tester, 'JSON格式化');
 
     await tester.enterText(find.byType(TextField).first, '{"name":}');
     await tester.tap(find.text('校验'));
@@ -208,8 +223,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyToolsApp());
-    await tester.tap(find.text('时间戳转换'));
-    await tester.pumpAndSettle();
+    await selectTool(tester, '时间戳转换');
 
     expect(find.text('当前时间'), findsOneWidget);
     expect(find.text('秒时间戳'), findsOneWidget);
@@ -223,6 +237,17 @@ void main() {
     expect(find.text('转换完成。'), findsOneWidget);
   });
 
+  testWidgets('ipa unpack page shows app info panel', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, 'IPA解析');
+
+    expect(find.text('当前结果'), findsOneWidget);
+    expect(find.text('应用信息'), findsOneWidget);
+    expect(find.text('解析 IPA 后会显示 App 名称、Bundle ID、版本号等信息。'), findsOneWidget);
+  });
+
   testWidgets('color converter converts hex color to common formats', (
     WidgetTester tester,
   ) async {
@@ -232,8 +257,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const MyToolsApp());
-    await tester.tap(find.text('颜色转换'));
-    await tester.pumpAndSettle();
+    await selectTool(tester, '颜色转换');
 
     expect(find.text('颜色值'), findsOneWidget);
     expect(find.text('HEX'), findsNothing);
@@ -257,13 +281,128 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyToolsApp());
-    await tester.tap(find.text('颜色转换'));
-    await tester.pumpAndSettle();
+    await selectTool(tester, '颜色转换');
 
     await tester.enterText(find.byType(TextField).first, '#XYZ');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
     expect(find.text('HEX 颜色只能包含 0-9、A-F。'), findsOneWidget);
+  });
+
+  testWidgets('hash calculator calculates common digest formats', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, 'Hash计算');
+
+    expect(find.text('输入文本'), findsOneWidget);
+    expect(find.text('MD5'), findsNothing);
+
+    await tester.enterText(find.byType(TextField).first, 'abc');
+    await tester.tap(find.text('计算'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MD5'), findsOneWidget);
+    expect(find.text('SHA-1'), findsOneWidget);
+    expect(find.text('SHA-256'), findsOneWidget);
+    expect(
+      find.text('900150983cd24fb0d6963f7d28e17f72', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.text('a9993e364706816aba3e25717850c26c9cd0d89d', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Hash 计算完成。'), findsOneWidget);
+  });
+
+  testWidgets('hash calculator reports empty input', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, 'Hash计算');
+
+    await tester.tap(find.text('计算'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('请先输入需要计算 Hash 的文本。'), findsOneWidget);
+  });
+
+  testWidgets('image info page shows drop zone and empty state', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '图片信息');
+
+    expect(find.byType(DropTarget), findsOneWidget);
+    expect(find.text('拖拽图片到这里'), findsOneWidget);
+    expect(find.text('选择图片'), findsOneWidget);
+    expect(find.text('当前图片'), findsOneWidget);
+    expect(find.text('等待选择图片'), findsOneWidget);
+    expect(find.text('选择图片后会显示尺寸、格式、大小和透明通道信息。'), findsOneWidget);
+  });
+
+  testWidgets('jwt decoder decodes header payload and time claims', (
+    WidgetTester tester,
+  ) async {
+    const jwt =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'
+        'eyJzdWIiOiIxMjMiLCJuYW1lIjoiTXlUb29scyIsImlhdCI6MCwiZXhwIjoyMDAwMDAwMDAwfQ.'
+        'signature';
+
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, 'JWT解析');
+
+    expect(find.text('JWT'), findsOneWidget);
+    expect(find.text('Header'), findsNothing);
+
+    await tester.enterText(find.byType(TextField).first, jwt);
+    await tester.tap(find.text('解析'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Header'), findsOneWidget);
+    expect(find.text('Payload'), findsOneWidget);
+    expect(find.text('时间声明'), findsOneWidget);
+    expect(find.text('未过期'), findsOneWidget);
+    expect(
+      find.textContaining('"alg": "HS256"', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('"name": "MyTools"', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('JWT 解析完成。注意：当前仅解码内容，不校验签名。'), findsOneWidget);
+  });
+
+  testWidgets('jwt decoder reports invalid token segments', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, 'JWT解析');
+
+    await tester.enterText(find.byType(TextField).first, 'invalid-token');
+    await tester.tap(find.text('解析'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('JWT 需要包含 Header、Payload、Signature 三段。'), findsOneWidget);
   });
 }
