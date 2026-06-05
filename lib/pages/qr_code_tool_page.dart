@@ -30,6 +30,10 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
   final FocusNode _decodeFocusNode = FocusNode();
   final _QrImageDecoder _decoder = const _QrImageDecoder();
   bool _urlEncodeContent = false;
+  int _errorCorrectionLevel = QrErrorCorrectLevel.M;
+  int _qrImageSize = 720;
+  Color _foregroundColor = Colors.black;
+  Color _backgroundColor = Colors.white;
   bool _isDraggingFile = false;
   bool _isDecoding = false;
   String? _generateStatusText;
@@ -68,6 +72,38 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
   void _handleUrlEncodeChanged(bool value) {
     setState(() {
       _urlEncodeContent = value;
+      _generateStatusText = null;
+      _generateErrorText = null;
+    });
+  }
+
+  void _handleErrorCorrectionLevelChanged(int value) {
+    setState(() {
+      _errorCorrectionLevel = value;
+      _generateStatusText = null;
+      _generateErrorText = null;
+    });
+  }
+
+  void _handleQrImageSizeChanged(double value) {
+    setState(() {
+      _qrImageSize = value.round();
+      _generateStatusText = null;
+      _generateErrorText = null;
+    });
+  }
+
+  void _handleForegroundColorChanged(Color value) {
+    setState(() {
+      _foregroundColor = value;
+      _generateStatusText = null;
+      _generateErrorText = null;
+    });
+  }
+
+  void _handleBackgroundColorChanged(Color value) {
+    setState(() {
+      _backgroundColor = value;
       _generateStatusText = null;
       _generateErrorText = null;
     });
@@ -126,13 +162,26 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
       final painter = QrPainter(
         data: _qrContent,
         version: QrVersions.auto,
-        errorCorrectionLevel: QrErrorCorrectLevel.M,
+        errorCorrectionLevel: _errorCorrectionLevel,
         gapless: false,
+        eyeStyle: QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: _foregroundColor,
+        ),
+        dataModuleStyle: QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: _foregroundColor,
+        ),
       );
-      final imageData = await painter.toImageData(
-        720,
-        format: ui.ImageByteFormat.png,
-      );
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final imageSize = _qrImageSize.toDouble();
+      final imageRect = Rect.fromLTWH(0, 0, imageSize, imageSize);
+      canvas.drawRect(imageRect, Paint()..color = _backgroundColor);
+      painter.paint(canvas, Size.square(imageSize));
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(_qrImageSize, _qrImageSize);
+      final imageData = await image.toByteData(format: ui.ImageByteFormat.png);
 
       if (imageData == null) {
         throw const FormatException('二维码图片生成失败。');
@@ -519,10 +568,19 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
                   qrContent: _qrContent,
                   canGenerate: _canGenerate,
                   urlEncodeContent: _urlEncodeContent,
+                  errorCorrectionLevel: _errorCorrectionLevel,
+                  qrImageSize: _qrImageSize,
+                  foregroundColor: _foregroundColor,
+                  backgroundColor: _backgroundColor,
                   statusText: _generateErrorText ?? _generateStatusText,
                   isError: _generateErrorText != null,
                   onInputChanged: _handleInputChanged,
                   onUrlEncodeChanged: _handleUrlEncodeChanged,
+                  onErrorCorrectionLevelChanged:
+                      _handleErrorCorrectionLevelChanged,
+                  onQrImageSizeChanged: _handleQrImageSizeChanged,
+                  onForegroundColorChanged: _handleForegroundColorChanged,
+                  onBackgroundColorChanged: _handleBackgroundColorChanged,
                   onCopyContent: _handleCopyGeneratedContent,
                   onSaveImage: _handleSaveQrImage,
                   onClear: _handleClearInput,
@@ -671,10 +729,18 @@ class _QrGeneratePanel extends StatelessWidget {
     required this.qrContent,
     required this.canGenerate,
     required this.urlEncodeContent,
+    required this.errorCorrectionLevel,
+    required this.qrImageSize,
+    required this.foregroundColor,
+    required this.backgroundColor,
     required this.statusText,
     required this.isError,
     required this.onInputChanged,
     required this.onUrlEncodeChanged,
+    required this.onErrorCorrectionLevelChanged,
+    required this.onQrImageSizeChanged,
+    required this.onForegroundColorChanged,
+    required this.onBackgroundColorChanged,
     required this.onCopyContent,
     required this.onSaveImage,
     required this.onClear,
@@ -684,10 +750,18 @@ class _QrGeneratePanel extends StatelessWidget {
   final String qrContent;
   final bool canGenerate;
   final bool urlEncodeContent;
+  final int errorCorrectionLevel;
+  final int qrImageSize;
+  final Color foregroundColor;
+  final Color backgroundColor;
   final String? statusText;
   final bool isError;
   final ValueChanged<String> onInputChanged;
   final ValueChanged<bool> onUrlEncodeChanged;
+  final ValueChanged<int> onErrorCorrectionLevelChanged;
+  final ValueChanged<double> onQrImageSizeChanged;
+  final ValueChanged<Color> onForegroundColorChanged;
+  final ValueChanged<Color> onBackgroundColorChanged;
   final VoidCallback onCopyContent;
   final VoidCallback onSaveImage;
   final VoidCallback onClear;
@@ -731,6 +805,17 @@ class _QrGeneratePanel extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               title: const Text('生成前先 URL 编码'),
             ),
+            _QrGenerateOptions(
+              errorCorrectionLevel: errorCorrectionLevel,
+              qrImageSize: qrImageSize,
+              foregroundColor: foregroundColor,
+              backgroundColor: backgroundColor,
+              onErrorCorrectionLevelChanged: onErrorCorrectionLevelChanged,
+              onQrImageSizeChanged: onQrImageSizeChanged,
+              onForegroundColorChanged: onForegroundColorChanged,
+              onBackgroundColorChanged: onBackgroundColorChanged,
+            ),
+            const SizedBox(height: 12),
             if (statusText != null) ...[
               _QrMessageBanner(message: statusText!, isError: isError),
               const SizedBox(height: 12),
@@ -750,9 +835,17 @@ class _QrGeneratePanel extends StatelessWidget {
                           child: QrImageView(
                             data: qrContent,
                             version: QrVersions.auto,
-                            errorCorrectionLevel: QrErrorCorrectLevel.M,
+                            errorCorrectionLevel: errorCorrectionLevel,
                             size: 240,
-                            backgroundColor: Colors.white,
+                            backgroundColor: backgroundColor,
+                            eyeStyle: QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: foregroundColor,
+                            ),
+                            dataModuleStyle: QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: foregroundColor,
+                            ),
                           ),
                         ),
                       )
@@ -787,6 +880,204 @@ class _QrGeneratePanel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _QrGenerateOptions extends StatelessWidget {
+  const _QrGenerateOptions({
+    required this.errorCorrectionLevel,
+    required this.qrImageSize,
+    required this.foregroundColor,
+    required this.backgroundColor,
+    required this.onErrorCorrectionLevelChanged,
+    required this.onQrImageSizeChanged,
+    required this.onForegroundColorChanged,
+    required this.onBackgroundColorChanged,
+  });
+
+  static const List<_QrCorrectionLevelOption> _levelOptions = [
+    _QrCorrectionLevelOption('L', QrErrorCorrectLevel.L),
+    _QrCorrectionLevelOption('M', QrErrorCorrectLevel.M),
+    _QrCorrectionLevelOption('Q', QrErrorCorrectLevel.Q),
+    _QrCorrectionLevelOption('H', QrErrorCorrectLevel.H),
+  ];
+
+  static const List<Color> _foregroundOptions = [
+    Colors.black,
+    Color(0xFF0F766E),
+    Color(0xFF1D4ED8),
+    Color(0xFF7C2D12),
+    Color(0xFF831843),
+  ];
+
+  static const List<Color> _backgroundOptions = [
+    Colors.white,
+    Color(0xFFF7FAFB),
+    Color(0xFFFFF7ED),
+    Color(0xFFEFF6FF),
+    Color(0xFFFDF2F8),
+  ];
+
+  final int errorCorrectionLevel;
+  final int qrImageSize;
+  final Color foregroundColor;
+  final Color backgroundColor;
+  final ValueChanged<int> onErrorCorrectionLevelChanged;
+  final ValueChanged<double> onQrImageSizeChanged;
+  final ValueChanged<Color> onForegroundColorChanged;
+  final ValueChanged<Color> onBackgroundColorChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD8E2E8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '生成设置',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: const Color(0xFF23313C),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _levelOptions
+                  .map(
+                    (_QrCorrectionLevelOption option) => ChoiceChip(
+                      label: Text('纠错 ${option.label}'),
+                      selected: errorCorrectionLevel == option.value,
+                      onSelected: (_) =>
+                          onErrorCorrectionLevelChanged(option.value),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    '导出尺寸',
+                    style: TextStyle(
+                      color: Color(0xFF607180),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${qrImageSize}px',
+                  style: const TextStyle(
+                    color: Color(0xFF23313C),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: qrImageSize.toDouble(),
+              min: 256,
+              max: 1024,
+              divisions: 6,
+              onChanged: onQrImageSizeChanged,
+            ),
+            _QrColorOptionRow(
+              label: '前景色',
+              selectedColor: foregroundColor,
+              colors: _foregroundOptions,
+              onChanged: onForegroundColorChanged,
+            ),
+            const SizedBox(height: 10),
+            _QrColorOptionRow(
+              label: '背景色',
+              selectedColor: backgroundColor,
+              colors: _backgroundOptions,
+              onChanged: onBackgroundColorChanged,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QrColorOptionRow extends StatelessWidget {
+  const _QrColorOptionRow({
+    required this.label,
+    required this.selectedColor,
+    required this.colors,
+    required this.onChanged,
+  });
+
+  final String label;
+  final Color selectedColor;
+  final List<Color> colors;
+  final ValueChanged<Color> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF607180),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: colors
+                .map(
+                  (Color color) => Tooltip(
+                    message:
+                        '#${color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}',
+                    child: InkWell(
+                      onTap: () => onChanged(color),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: selectedColor == color
+                                ? const Color(0xFF0F766E)
+                                : const Color(0xFFD8E2E8),
+                            width: selectedColor == color ? 2 : 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QrCorrectionLevelOption {
+  const _QrCorrectionLevelOption(this.label, this.value);
+
+  final String label;
+  final int value;
 }
 
 class _QrDecodePanel extends StatelessWidget {

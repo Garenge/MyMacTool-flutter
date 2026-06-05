@@ -490,12 +490,22 @@ void main() {
   testWidgets('qr code tool generates code with optional url encoding', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(1600, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '二维码工具');
 
     expect(find.text('生成二维码'), findsWidgets);
     expect(find.text('解析二维码'), findsOneWidget);
     expect(find.text('生成前先 URL 编码'), findsOneWidget);
+    expect(find.text('生成设置'), findsOneWidget);
+    expect(find.text('纠错 M'), findsOneWidget);
+    expect(find.text('导出尺寸'), findsOneWidget);
+    expect(find.text('前景色'), findsOneWidget);
+    expect(find.text('背景色'), findsOneWidget);
     expect(find.text('支持粘贴、拖拽或选择二维码图片。'), findsNothing);
     expect(find.text('输入字符串后会在这里生成二维码。'), findsOneWidget);
 
@@ -530,7 +540,7 @@ void main() {
   testWidgets('qr code tool reports empty generated copy', (
     WidgetTester tester,
   ) async {
-    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.physicalSize = const Size(1600, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
