@@ -50,6 +50,10 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持展示 Profile 名称、UUID、Team ID、Bundle ID、平台、创建和过期时间
   - 支持展示 Entitlements、开发证书摘要、设备 UDID 列表和过期状态
   - 支持复制 Bundle ID 和 Profile 摘要
+- Plist 查看
+  - 支持选择或拖拽 XML plist / binary plist 文件
+  - 支持将 plist 格式化为树形节点，展示 key、path、类型和值
+  - 支持搜索 key、path 或 value，复制 plist 路径和 XML 内容
 - Lottie 预览
   - 支持选择多个 JSON 文件或拖拽导入
   - 支持多动画叠加预览、选择、反选、清空
@@ -95,6 +99,8 @@ lib/
     lottie_preview_page.dart
     mobileprovision_profile_info.dart
     mobileprovision_profile_page.dart
+    plist_document_info.dart
+    plist_document_page.dart
     qr_code_tool_page.dart
     radix_converter_page.dart
     svg_preview_page.dart
@@ -109,13 +115,10 @@ lib/
 
 ### P0：移动端排查能力
 
-1. Plist / Info.plist 查看器
-   - 支持 XML plist 和 binary plist 读取
-   - 支持树形查看、搜索 key、复制 value、格式化导出
-   - 后续可从 IPA 解析页面一键打开解包出的 `Info.plist`
-2. IPA 与 Profile 联动
+1. IPA 与 Profile / Plist 联动
    - 从 IPA 解包结果中读取 `embedded.mobileprovision`
    - 将 IPA 的 Bundle ID、Team ID 与 Profile 解析结果做一致性提示
+   - 支持从 IPA 解析页面一键打开解包出的 `Info.plist`
    - 显示签名、证书、权限、支持设备等排查信息
 
 ### P1：开发日常高频工具

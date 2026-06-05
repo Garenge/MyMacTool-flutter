@@ -554,4 +554,17 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('plist document page shows drop zone and empty result', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, 'Plist查看');
+
+    expect(find.byType(DropTarget), findsOneWidget);
+    expect(find.text('拖拽 Plist 到这里'), findsOneWidget);
+    expect(find.text('选择文件'), findsOneWidget);
+    expect(find.text('支持 XML plist 和 binary plist 文件。'), findsOneWidget);
+    expect(find.text('选择 plist 后会显示 key、path、类型和值，并支持搜索。'), findsOneWidget);
+  });
 }

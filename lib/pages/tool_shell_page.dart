@@ -9,6 +9,7 @@ import 'json_formatter_page.dart';
 import 'jwt_decoder_page.dart';
 import 'lottie_preview_page.dart';
 import 'mobileprovision_profile_page.dart';
+import 'plist_document_page.dart';
 import 'qr_code_tool_page.dart';
 import 'radix_converter_page.dart';
 import 'svg_preview_page.dart';
@@ -26,6 +27,7 @@ enum ToolItem {
   jwtDecoder,
   qrCodeTool,
   mobileProvisionProfile,
+  plistDocument,
   lottiePreview,
   ipaUnpack,
 }
@@ -97,6 +99,11 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.mobileProvisionProfile,
     title: 'Profile解析',
     icon: Icons.verified_user_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.plistDocument,
+    title: 'Plist查看',
+    icon: Icons.account_tree_rounded,
   ),
   _ToolDefinition(
     tool: ToolItem.lottiePreview,
@@ -190,6 +197,8 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const QrCodeToolPage();
       case ToolItem.mobileProvisionProfile:
         return const MobileProvisionProfilePage();
+      case ToolItem.plistDocument:
+        return const PlistDocumentPage();
       case ToolItem.lottiePreview:
         return const LottiePreviewPage();
       case ToolItem.ipaUnpack:
