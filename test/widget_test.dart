@@ -532,6 +532,10 @@ void main() {
     expect(find.text('生成前先 URL 编码'), findsOneWidget);
     expect(find.text('生成设置'), findsOneWidget);
     expect(find.text('纠错 M'), findsOneWidget);
+    expect(find.text('定位点'), findsOneWidget);
+    expect(find.text('码点'), findsOneWidget);
+    expect(find.text('圆形'), findsOneWidget);
+    expect(find.text('圆点'), findsOneWidget);
     expect(find.text('导出尺寸'), findsOneWidget);
     expect(find.text('前景色'), findsOneWidget);
     expect(find.text('背景色'), findsOneWidget);
@@ -544,6 +548,11 @@ void main() {
     expect(find.byType(QrImageView), findsOneWidget);
 
     await tester.tap(find.text('生成前先 URL 编码'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(QrImageView), findsOneWidget);
+
+    await tester.tap(find.text('圆点'));
     await tester.pumpAndSettle();
 
     expect(find.byType(QrImageView), findsOneWidget);

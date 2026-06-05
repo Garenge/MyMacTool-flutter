@@ -31,6 +31,8 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
   final _QrImageDecoder _decoder = const _QrImageDecoder();
   bool _urlEncodeContent = false;
   int _errorCorrectionLevel = QrErrorCorrectLevel.M;
+  QrEyeShape _eyeShape = QrEyeShape.square;
+  QrDataModuleShape _dataModuleShape = QrDataModuleShape.square;
   int _qrImageSize = 720;
   Color _foregroundColor = Colors.black;
   Color _backgroundColor = Colors.white;
@@ -80,6 +82,22 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
   void _handleErrorCorrectionLevelChanged(int value) {
     setState(() {
       _errorCorrectionLevel = value;
+      _generateStatusText = null;
+      _generateErrorText = null;
+    });
+  }
+
+  void _handleEyeShapeChanged(QrEyeShape value) {
+    setState(() {
+      _eyeShape = value;
+      _generateStatusText = null;
+      _generateErrorText = null;
+    });
+  }
+
+  void _handleDataModuleShapeChanged(QrDataModuleShape value) {
+    setState(() {
+      _dataModuleShape = value;
       _generateStatusText = null;
       _generateErrorText = null;
     });
@@ -164,12 +182,9 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
         version: QrVersions.auto,
         errorCorrectionLevel: _errorCorrectionLevel,
         gapless: false,
-        eyeStyle: QrEyeStyle(
-          eyeShape: QrEyeShape.square,
-          color: _foregroundColor,
-        ),
+        eyeStyle: QrEyeStyle(eyeShape: _eyeShape, color: _foregroundColor),
         dataModuleStyle: QrDataModuleStyle(
-          dataModuleShape: QrDataModuleShape.square,
+          dataModuleShape: _dataModuleShape,
           color: _foregroundColor,
         ),
       );
@@ -569,6 +584,8 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
                   canGenerate: _canGenerate,
                   urlEncodeContent: _urlEncodeContent,
                   errorCorrectionLevel: _errorCorrectionLevel,
+                  eyeShape: _eyeShape,
+                  dataModuleShape: _dataModuleShape,
                   qrImageSize: _qrImageSize,
                   foregroundColor: _foregroundColor,
                   backgroundColor: _backgroundColor,
@@ -578,6 +595,8 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
                   onUrlEncodeChanged: _handleUrlEncodeChanged,
                   onErrorCorrectionLevelChanged:
                       _handleErrorCorrectionLevelChanged,
+                  onEyeShapeChanged: _handleEyeShapeChanged,
+                  onDataModuleShapeChanged: _handleDataModuleShapeChanged,
                   onQrImageSizeChanged: _handleQrImageSizeChanged,
                   onForegroundColorChanged: _handleForegroundColorChanged,
                   onBackgroundColorChanged: _handleBackgroundColorChanged,
@@ -730,6 +749,8 @@ class _QrGeneratePanel extends StatelessWidget {
     required this.canGenerate,
     required this.urlEncodeContent,
     required this.errorCorrectionLevel,
+    required this.eyeShape,
+    required this.dataModuleShape,
     required this.qrImageSize,
     required this.foregroundColor,
     required this.backgroundColor,
@@ -738,6 +759,8 @@ class _QrGeneratePanel extends StatelessWidget {
     required this.onInputChanged,
     required this.onUrlEncodeChanged,
     required this.onErrorCorrectionLevelChanged,
+    required this.onEyeShapeChanged,
+    required this.onDataModuleShapeChanged,
     required this.onQrImageSizeChanged,
     required this.onForegroundColorChanged,
     required this.onBackgroundColorChanged,
@@ -751,6 +774,8 @@ class _QrGeneratePanel extends StatelessWidget {
   final bool canGenerate;
   final bool urlEncodeContent;
   final int errorCorrectionLevel;
+  final QrEyeShape eyeShape;
+  final QrDataModuleShape dataModuleShape;
   final int qrImageSize;
   final Color foregroundColor;
   final Color backgroundColor;
@@ -759,6 +784,8 @@ class _QrGeneratePanel extends StatelessWidget {
   final ValueChanged<String> onInputChanged;
   final ValueChanged<bool> onUrlEncodeChanged;
   final ValueChanged<int> onErrorCorrectionLevelChanged;
+  final ValueChanged<QrEyeShape> onEyeShapeChanged;
+  final ValueChanged<QrDataModuleShape> onDataModuleShapeChanged;
   final ValueChanged<double> onQrImageSizeChanged;
   final ValueChanged<Color> onForegroundColorChanged;
   final ValueChanged<Color> onBackgroundColorChanged;
@@ -807,10 +834,14 @@ class _QrGeneratePanel extends StatelessWidget {
             ),
             _QrGenerateOptions(
               errorCorrectionLevel: errorCorrectionLevel,
+              eyeShape: eyeShape,
+              dataModuleShape: dataModuleShape,
               qrImageSize: qrImageSize,
               foregroundColor: foregroundColor,
               backgroundColor: backgroundColor,
               onErrorCorrectionLevelChanged: onErrorCorrectionLevelChanged,
+              onEyeShapeChanged: onEyeShapeChanged,
+              onDataModuleShapeChanged: onDataModuleShapeChanged,
               onQrImageSizeChanged: onQrImageSizeChanged,
               onForegroundColorChanged: onForegroundColorChanged,
               onBackgroundColorChanged: onBackgroundColorChanged,
@@ -839,11 +870,11 @@ class _QrGeneratePanel extends StatelessWidget {
                             size: 240,
                             backgroundColor: backgroundColor,
                             eyeStyle: QrEyeStyle(
-                              eyeShape: QrEyeShape.square,
+                              eyeShape: eyeShape,
                               color: foregroundColor,
                             ),
                             dataModuleStyle: QrDataModuleStyle(
-                              dataModuleShape: QrDataModuleShape.square,
+                              dataModuleShape: dataModuleShape,
                               color: foregroundColor,
                             ),
                           ),
@@ -885,10 +916,14 @@ class _QrGeneratePanel extends StatelessWidget {
 class _QrGenerateOptions extends StatelessWidget {
   const _QrGenerateOptions({
     required this.errorCorrectionLevel,
+    required this.eyeShape,
+    required this.dataModuleShape,
     required this.qrImageSize,
     required this.foregroundColor,
     required this.backgroundColor,
     required this.onErrorCorrectionLevelChanged,
+    required this.onEyeShapeChanged,
+    required this.onDataModuleShapeChanged,
     required this.onQrImageSizeChanged,
     required this.onForegroundColorChanged,
     required this.onBackgroundColorChanged,
@@ -899,6 +934,16 @@ class _QrGenerateOptions extends StatelessWidget {
     _QrCorrectionLevelOption('M', QrErrorCorrectLevel.M),
     _QrCorrectionLevelOption('Q', QrErrorCorrectLevel.Q),
     _QrCorrectionLevelOption('H', QrErrorCorrectLevel.H),
+  ];
+
+  static const List<_QrEyeShapeOption> _eyeShapeOptions = [
+    _QrEyeShapeOption('方形', QrEyeShape.square),
+    _QrEyeShapeOption('圆形', QrEyeShape.circle),
+  ];
+
+  static const List<_QrDataModuleShapeOption> _dataModuleShapeOptions = [
+    _QrDataModuleShapeOption('方形', QrDataModuleShape.square),
+    _QrDataModuleShapeOption('圆点', QrDataModuleShape.circle),
   ];
 
   static const List<Color> _foregroundOptions = [
@@ -918,10 +963,14 @@ class _QrGenerateOptions extends StatelessWidget {
   ];
 
   final int errorCorrectionLevel;
+  final QrEyeShape eyeShape;
+  final QrDataModuleShape dataModuleShape;
   final int qrImageSize;
   final Color foregroundColor;
   final Color backgroundColor;
   final ValueChanged<int> onErrorCorrectionLevelChanged;
+  final ValueChanged<QrEyeShape> onEyeShapeChanged;
+  final ValueChanged<QrDataModuleShape> onDataModuleShapeChanged;
   final ValueChanged<double> onQrImageSizeChanged;
   final ValueChanged<Color> onForegroundColorChanged;
   final ValueChanged<Color> onBackgroundColorChanged;
@@ -960,6 +1009,24 @@ class _QrGenerateOptions extends StatelessWidget {
                     ),
                   )
                   .toList(),
+            ),
+            const SizedBox(height: 12),
+            _QrShapeOptionRow<QrEyeShape, _QrEyeShapeOption>(
+              label: '定位点',
+              options: _eyeShapeOptions,
+              selectedValue: eyeShape,
+              valueOf: (_QrEyeShapeOption option) => option.value,
+              labelOf: (_QrEyeShapeOption option) => option.label,
+              onChanged: onEyeShapeChanged,
+            ),
+            const SizedBox(height: 10),
+            _QrShapeOptionRow<QrDataModuleShape, _QrDataModuleShapeOption>(
+              label: '码点',
+              options: _dataModuleShapeOptions,
+              selectedValue: dataModuleShape,
+              valueOf: (_QrDataModuleShapeOption option) => option.value,
+              labelOf: (_QrDataModuleShapeOption option) => option.label,
+              onChanged: onDataModuleShapeChanged,
             ),
             const SizedBox(height: 12),
             Row(
@@ -1073,11 +1140,76 @@ class _QrColorOptionRow extends StatelessWidget {
   }
 }
 
+class _QrShapeOptionRow<T, O> extends StatelessWidget {
+  const _QrShapeOptionRow({
+    required this.label,
+    required this.options,
+    required this.selectedValue,
+    required this.valueOf,
+    required this.labelOf,
+    required this.onChanged,
+  });
+
+  final String label;
+  final List<O> options;
+  final T selectedValue;
+  final T Function(O option) valueOf;
+  final String Function(O option) labelOf;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF607180),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: options
+                .map(
+                  (O option) => ChoiceChip(
+                    label: Text(labelOf(option)),
+                    selected: selectedValue == valueOf(option),
+                    onSelected: (_) => onChanged(valueOf(option)),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _QrCorrectionLevelOption {
   const _QrCorrectionLevelOption(this.label, this.value);
 
   final String label;
   final int value;
+}
+
+class _QrEyeShapeOption {
+  const _QrEyeShapeOption(this.label, this.value);
+
+  final String label;
+  final QrEyeShape value;
+}
+
+class _QrDataModuleShapeOption {
+  const _QrDataModuleShapeOption(this.label, this.value);
+
+  final String label;
+  final QrDataModuleShape value;
 }
 
 class _QrDecodePanel extends StatelessWidget {
