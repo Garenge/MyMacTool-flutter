@@ -54,6 +54,10 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持选择或拖拽 XML plist / binary plist 文件
   - 支持将 plist 格式化为树形节点，展示 key、path、类型和值
   - 支持搜索 key、path 或 value，复制 plist 路径和 XML 内容
+- 随机生成
+  - 支持批量生成 UUID v4
+  - 支持按长度批量生成随机字符串，可选择小写、大写、数字、符号
+  - 支持复制单项结果和全部结果
 - Lottie 预览
   - 支持选择多个 JSON 文件或拖拽导入
   - 支持多动画叠加预览、选择、反选、清空
@@ -105,6 +109,7 @@ lib/
     plist_document_page.dart
     qr_code_tool_page.dart
     radix_converter_page.dart
+    random_string_generator_page.dart
     svg_preview_page.dart
     timestamp_converter_page.dart
     color_converter_page.dart
@@ -124,15 +129,11 @@ lib/
 
 ### P1：开发日常高频工具
 
-1. UUID / 随机字符串生成器
-   - 支持 UUID v4、批量生成、指定数量复制
-   - 支持按长度生成随机字符串，可选大小写、数字、符号
-   - 支持生成历史和一键复制全部
-2. 正则表达式测试工具
+1. 正则表达式测试工具
    - 支持输入 pattern 和测试文本
    - 展示匹配分组、全局匹配结果、替换预览
    - 支持常用 flag 切换和错误提示
-3. 文本 Diff 工具
+2. 文本 Diff 工具
    - 支持左右文本对比、行级差异、复制合并结果
    - 适合和 JSON 格式化、编码转换配合使用
 

@@ -12,6 +12,7 @@ import 'mobileprovision_profile_page.dart';
 import 'plist_document_page.dart';
 import 'qr_code_tool_page.dart';
 import 'radix_converter_page.dart';
+import 'random_string_generator_page.dart';
 import 'svg_preview_page.dart';
 import 'timestamp_converter_page.dart';
 
@@ -28,6 +29,7 @@ enum ToolItem {
   qrCodeTool,
   mobileProvisionProfile,
   plistDocument,
+  randomStringGenerator,
   lottiePreview,
   ipaUnpack,
 }
@@ -104,6 +106,11 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.plistDocument,
     title: 'Plist查看',
     icon: Icons.account_tree_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.randomStringGenerator,
+    title: '随机生成',
+    icon: Icons.password_rounded,
   ),
   _ToolDefinition(
     tool: ToolItem.lottiePreview,
@@ -199,6 +206,8 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const MobileProvisionProfilePage();
       case ToolItem.plistDocument:
         return const PlistDocumentPage();
+      case ToolItem.randomStringGenerator:
+        return const RandomStringGeneratorPage();
       case ToolItem.lottiePreview:
         return const LottiePreviewPage();
       case ToolItem.ipaUnpack:
