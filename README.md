@@ -57,7 +57,7 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
 - Plist 查看
   - 支持选择或拖拽 XML plist / binary plist 文件
   - 支持将 plist 格式化为树形节点，展示 key、path、类型和值
-  - 支持搜索 key、path 或 value，复制 plist 路径和 XML 内容
+  - 支持搜索 key、path 或 value，复制 plist 路径、摘要和 XML 内容
 - 随机生成
   - 支持批量生成 UUID v4
   - 支持按长度批量生成随机字符串，可选择小写、大写、数字、符号

@@ -152,6 +152,25 @@ class _PlistDocumentPageState extends State<PlistDocumentPage> {
     });
   }
 
+  Future<void> _handleCopySummary() async {
+    final info = _info;
+
+    if (info == null) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: _buildSummaryText(info)));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制 plist 摘要。';
+      _errorText = null;
+    });
+  }
+
   Future<void> _handleCopyPath() async {
     final path = _info?.filePath;
 
@@ -169,6 +188,27 @@ class _PlistDocumentPageState extends State<PlistDocumentPage> {
       _statusText = '已复制 plist 路径。';
       _errorText = null;
     });
+  }
+
+  String _buildSummaryText(PlistDocumentInfo info) {
+    return [
+      'Path: ${info.filePath}',
+      'Root Type: ${info.root.type.label}',
+      'Root Value: ${info.root.valueText}',
+      'Nodes: ${info.itemCount}',
+      'Top Level Keys: ${_topLevelTitles(info.root)}',
+    ].join('\n');
+  }
+
+  String _topLevelTitles(PlistNode root) {
+    if (root.children.isEmpty) {
+      return '-';
+    }
+
+    return root.children
+        .take(12)
+        .map((PlistNode node) => node.title)
+        .join(', ');
   }
 
   void _handleSearchChanged(String value) {
@@ -249,6 +289,7 @@ class _PlistDocumentPageState extends State<PlistDocumentPage> {
                   searchController: _searchController,
                   searchText: _searchText,
                   onSearchChanged: _handleSearchChanged,
+                  onCopySummary: _handleCopySummary,
                   onCopyXml: _handleCopyXml,
                   onCopyPath: _handleCopyPath,
                 ),
@@ -403,6 +444,7 @@ class _PlistResultPanel extends StatelessWidget {
     required this.searchController,
     required this.searchText,
     required this.onSearchChanged,
+    required this.onCopySummary,
     required this.onCopyXml,
     required this.onCopyPath,
   });
@@ -411,6 +453,7 @@ class _PlistResultPanel extends StatelessWidget {
   final TextEditingController searchController;
   final String searchText;
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback onCopySummary;
   final VoidCallback onCopyXml;
   final VoidCallback onCopyPath;
 
@@ -438,6 +481,7 @@ class _PlistResultPanel extends StatelessWidget {
             _ResultHeader(
               itemCount: info.itemCount,
               visibleCount: visibleNodes.length,
+              onCopySummary: onCopySummary,
               onCopyXml: onCopyXml,
               onCopyPath: onCopyPath,
             ),
@@ -497,12 +541,14 @@ class _ResultHeader extends StatelessWidget {
   const _ResultHeader({
     required this.itemCount,
     required this.visibleCount,
+    required this.onCopySummary,
     required this.onCopyXml,
     required this.onCopyPath,
   });
 
   final int itemCount;
   final int visibleCount;
+  final VoidCallback onCopySummary;
   final VoidCallback onCopyXml;
   final VoidCallback onCopyPath;
 
@@ -545,16 +591,27 @@ class _ResultHeader extends StatelessWidget {
             ],
           ),
         ),
-        OutlinedButton.icon(
-          onPressed: onCopyPath,
-          icon: const Icon(Icons.copy_rounded, size: 18),
-          label: const Text('路径'),
-        ),
-        const SizedBox(width: 8),
-        FilledButton.icon(
-          onPressed: onCopyXml,
-          icon: const Icon(Icons.copy_all_rounded, size: 18),
-          label: const Text('复制 XML'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.end,
+          children: [
+            OutlinedButton.icon(
+              onPressed: onCopyPath,
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('路径'),
+            ),
+            OutlinedButton.icon(
+              onPressed: onCopySummary,
+              icon: const Icon(Icons.copy_all_rounded, size: 18),
+              label: const Text('复制摘要'),
+            ),
+            FilledButton.icon(
+              onPressed: onCopyXml,
+              icon: const Icon(Icons.copy_all_rounded, size: 18),
+              label: const Text('复制 XML'),
+            ),
+          ],
         ),
       ],
     );
