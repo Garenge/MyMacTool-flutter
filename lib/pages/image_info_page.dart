@@ -34,6 +34,7 @@ class _ImageInfoPageState extends State<ImageInfoPage> {
   ImageFileInfo? _info;
   String? _statusText;
   String? _errorText;
+  final List<ImageFileInfo> _records = <ImageFileInfo>[];
 
   Future<void> _handlePickFile() async {
     final file = await openFile(
@@ -88,6 +89,7 @@ class _ImageInfoPageState extends State<ImageInfoPage> {
 
       setState(() {
         _info = info;
+        _prependRecord(info);
         _statusText = '图片信息读取完成。';
         _errorText = null;
       });
@@ -129,12 +131,62 @@ class _ImageInfoPageState extends State<ImageInfoPage> {
     });
   }
 
+  Future<void> _handleCopySummary() async {
+    final info = _info;
+
+    if (info == null) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: _buildSummaryText(info)));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制图片摘要。';
+      _errorText = null;
+    });
+  }
+
+  void _handleSelectRecord(ImageFileInfo info) {
+    setState(() {
+      _info = info;
+      _statusText = '已恢复最近记录。';
+      _errorText = null;
+    });
+  }
+
   void _handleClear() {
     setState(() {
       _info = null;
       _statusText = null;
       _errorText = null;
     });
+  }
+
+  void _prependRecord(ImageFileInfo info) {
+    _records.removeWhere(
+      (ImageFileInfo record) => record.filePath == info.filePath,
+    );
+    _records.insert(0, info);
+
+    if (_records.length > 8) {
+      _records.removeRange(8, _records.length);
+    }
+  }
+
+  String _buildSummaryText(ImageFileInfo info) {
+    return [
+      'File: ${info.fileName}',
+      'Format: ${info.format}',
+      'Dimensions: ${info.dimensionsText}',
+      'Size: ${info.fileSizeText}',
+      'Alpha: ${info.alphaText}',
+      'Frames: ${info.frameCountText}',
+      'Path: ${info.filePath}',
+    ].join('\n');
   }
 
   @override
@@ -269,9 +321,12 @@ class _ImageInfoPageState extends State<ImageInfoPage> {
                     padding: const EdgeInsets.all(20),
                     child: _ImageInfoPanel(
                       info: _info,
+                      records: _records,
                       statusText: _errorText ?? _statusText ?? '等待选择图片',
                       isError: _errorText != null,
                       onCopyPath: _info == null ? null : _handleCopyPath,
+                      onCopySummary: _info == null ? null : _handleCopySummary,
+                      onSelectRecord: _handleSelectRecord,
                     ),
                   ),
                 ),
@@ -287,15 +342,21 @@ class _ImageInfoPageState extends State<ImageInfoPage> {
 class _ImageInfoPanel extends StatelessWidget {
   const _ImageInfoPanel({
     required this.info,
+    required this.records,
     required this.statusText,
     required this.isError,
     required this.onCopyPath,
+    required this.onCopySummary,
+    required this.onSelectRecord,
   });
 
   final ImageFileInfo? info;
+  final List<ImageFileInfo> records;
   final String statusText;
   final bool isError;
   final VoidCallback? onCopyPath;
+  final VoidCallback? onCopySummary;
+  final ValueChanged<ImageFileInfo> onSelectRecord;
 
   @override
   Widget build(BuildContext context) {
@@ -314,36 +375,138 @@ class _ImageInfoPanel extends StatelessWidget {
         const SizedBox(height: 14),
         _StatusBanner(message: statusText, isError: isError),
         const SizedBox(height: 14),
-        Expanded(
-          child: currentInfo == null
-              ? const _ImageInfoEmptyState()
-              : ListView(
-                  children: [
-                    _ImageInfoTile(label: '文件名', value: currentInfo.fileName),
-                    _ImageInfoTile(
-                      label: '尺寸',
-                      value: currentInfo.dimensionsText,
-                    ),
-                    _ImageInfoTile(label: '格式', value: currentInfo.format),
-                    _ImageInfoTile(
-                      label: '文件大小',
-                      value: currentInfo.fileSizeText,
-                    ),
-                    _ImageInfoTile(label: '透明信息', value: currentInfo.alphaText),
-                    _ImageInfoTile(
-                      label: '帧数',
-                      value: currentInfo.frameCountText,
-                    ),
-                    _ImageInfoTile(
-                      label: '路径',
-                      value: currentInfo.filePath,
-                      actionLabel: '复制路径',
-                      onTap: onCopyPath,
-                    ),
-                  ],
+        if (currentInfo != null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onCopySummary,
+                  icon: const Icon(Icons.copy_all_rounded, size: 18),
+                  label: const Text('复制摘要'),
                 ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onCopyPath,
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  label: const Text('复制路径'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+        ],
+        Expanded(
+          child: ListView(
+            children: [
+              if (currentInfo == null)
+                const SizedBox(height: 220, child: _ImageInfoEmptyState())
+              else ...[
+                _ImageInfoTile(label: '文件名', value: currentInfo.fileName),
+                _ImageInfoTile(label: '尺寸', value: currentInfo.dimensionsText),
+                _ImageInfoTile(label: '格式', value: currentInfo.format),
+                _ImageInfoTile(label: '文件大小', value: currentInfo.fileSizeText),
+                _ImageInfoTile(label: '透明信息', value: currentInfo.alphaText),
+                _ImageInfoTile(label: '帧数', value: currentInfo.frameCountText),
+                _ImageInfoTile(label: '路径', value: currentInfo.filePath),
+              ],
+              if (records.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _ImageRecordSection(
+                  records: records,
+                  onSelectRecord: onSelectRecord,
+                ),
+              ],
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _ImageRecordSection extends StatelessWidget {
+  const _ImageRecordSection({
+    required this.records,
+    required this.onSelectRecord,
+  });
+
+  final List<ImageFileInfo> records;
+  final ValueChanged<ImageFileInfo> onSelectRecord;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD8E2E8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '最近记录',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: const Color(0xFF23313C),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...records.map(
+              (ImageFileInfo record) => _ImageRecordTile(
+                info: record,
+                onTap: () => onSelectRecord(record),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageRecordTile extends StatelessWidget {
+  const _ImageRecordTile({required this.info, required this.onTap});
+
+  final ImageFileInfo info;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.image_search_rounded,
+                color: Color(0xFF0F766E),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${info.fileName} · ${info.dimensionsText}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF23313C),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -399,17 +562,10 @@ class _ImageInfoEmptyState extends StatelessWidget {
 }
 
 class _ImageInfoTile extends StatelessWidget {
-  const _ImageInfoTile({
-    required this.label,
-    required this.value,
-    this.actionLabel,
-    this.onTap,
-  });
+  const _ImageInfoTile({required this.label, required this.value});
 
   final String label;
   final String value;
-  final String? actionLabel;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -437,12 +593,6 @@ class _ImageInfoTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (actionLabel != null)
-                    TextButton.icon(
-                      onPressed: onTap,
-                      icon: const Icon(Icons.copy_rounded, size: 18),
-                      label: Text(actionLabel!),
-                    ),
                 ],
               ),
               const SizedBox(height: 6),
