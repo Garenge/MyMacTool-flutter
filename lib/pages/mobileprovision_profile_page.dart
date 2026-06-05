@@ -1,0 +1,965 @@
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'mobileprovision_profile_info.dart';
+
+class MobileProvisionProfilePage extends StatefulWidget {
+  const MobileProvisionProfilePage({super.key});
+
+  @override
+  State<MobileProvisionProfilePage> createState() =>
+      _MobileProvisionProfilePageState();
+}
+
+class _MobileProvisionProfilePageState
+    extends State<MobileProvisionProfilePage> {
+  static const XTypeGroup _provisionTypeGroup = XTypeGroup(
+    label: 'provisioning profiles',
+    extensions: <String>['mobileprovision', 'provisionprofile'],
+    mimeTypes: <String>['application/octet-stream', 'text/xml'],
+  );
+
+  final MobileProvisionProfileParser _parser =
+      const MobileProvisionProfileParser();
+  bool _isDraggingFile = false;
+  bool _isLoading = false;
+  MobileProvisionProfileInfo? _info;
+  String? _statusText;
+  String? _errorText;
+
+  Future<void> _handlePickFile() async {
+    final file = await openFile(
+      acceptedTypeGroups: <XTypeGroup>[_provisionTypeGroup],
+    );
+
+    if (file == null) {
+      return;
+    }
+
+    await _loadProfile(file.path);
+  }
+
+  Future<void> _handleDropFiles(List<DropItem> files) async {
+    final path = files
+        .map((DropItem item) => item.path)
+        .whereType<String>()
+        .cast<String?>()
+        .firstWhere(
+          (String? value) => value != null && _isProvisionPath(value),
+          orElse: () => null,
+        );
+
+    if (path == null) {
+      setState(() {
+        _errorText = '请拖入 .mobileprovision 或 .provisionprofile 文件。';
+        _statusText = null;
+      });
+      return;
+    }
+
+    await _loadProfile(path);
+  }
+
+  Future<void> _loadProfile(String path) async {
+    if (_isLoading) {
+      return;
+    }
+
+    if (!_isProvisionPath(path)) {
+      setState(() {
+        _errorText = '当前仅支持 .mobileprovision 或 .provisionprofile 文件。';
+        _statusText = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _statusText = '正在解析 Provisioning Profile...';
+      _errorText = null;
+    });
+
+    try {
+      final info = await _parser.parse(path);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _info = info;
+        _statusText = info.isExpired ? '解析完成，Profile 已过期。' : '解析完成。';
+        _errorText = null;
+      });
+    } on FormatException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _info = null;
+        _errorText = error.message;
+        _statusText = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _info = null;
+        _errorText = '解析失败，请确认文件有效后重试。';
+        _statusText = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleCopySummary() async {
+    final info = _info;
+
+    if (info == null) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: _buildSummaryText(info)));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制 Profile 摘要。';
+      _errorText = null;
+    });
+  }
+
+  Future<void> _handleCopyBundleId() async {
+    final bundleIdentifier = _info?.bundleIdentifier;
+
+    if (bundleIdentifier == null || bundleIdentifier.isEmpty) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: bundleIdentifier));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制 Bundle ID。';
+      _errorText = null;
+    });
+  }
+
+  void _handleClear() {
+    setState(() {
+      _info = null;
+      _statusText = null;
+      _errorText = null;
+    });
+  }
+
+  bool _isProvisionPath(String path) {
+    final lowerPath = path.toLowerCase();
+    return lowerPath.endsWith('.mobileprovision') ||
+        lowerPath.endsWith('.provisionprofile');
+  }
+
+  String _buildSummaryText(MobileProvisionProfileInfo info) {
+    final lines = <String>[
+      'Name: ${info.name}',
+      'UUID: ${info.uuid}',
+      'Type: ${info.profileKindLabel}',
+      'Team: ${info.teamName ?? '-'}',
+      'Team ID: ${_joinOrDash(info.teamIdentifiers)}',
+      'Bundle ID: ${info.bundleIdentifier ?? '-'}',
+      'Application Identifier: ${info.applicationIdentifier ?? '-'}',
+      'Created At: ${_formatDateTime(info.creationDate)}',
+      'Expires At: ${_formatDateTime(info.expirationDate)}',
+      'Platforms: ${_joinOrDash(info.platforms)}',
+      'Devices: ${info.provisionedDevices.length}',
+      'Certificates: ${info.certificates.length}',
+      '',
+      'Entitlements:',
+      ..._entitlementLines(info.entitlements),
+    ];
+
+    return lines.join('\n');
+  }
+
+  List<String> _entitlementLines(Map<String, Object?> entitlements) {
+    final keys = entitlements.keys.toList()..sort();
+
+    return keys
+        .map((String key) => '- $key: ${_formatValue(entitlements[key])}')
+        .toList();
+  }
+
+  String _joinOrDash(List<String> values) {
+    if (values.isEmpty) {
+      return '-';
+    }
+
+    return values.join(', ');
+  }
+
+  String _formatDateTime(DateTime? value) {
+    if (value == null) {
+      return '-';
+    }
+
+    final localValue = value.toLocal();
+    final date =
+        '${localValue.year}-${_twoDigits(localValue.month)}-${_twoDigits(localValue.day)}';
+    final time =
+        '${_twoDigits(localValue.hour)}:${_twoDigits(localValue.minute)}:${_twoDigits(localValue.second)}';
+
+    return '$date $time';
+  }
+
+  String _twoDigits(int value) => value.toString().padLeft(2, '0');
+
+  String _formatValue(Object? value) {
+    if (value == null) {
+      return '-';
+    }
+
+    if (value is List<Object?>) {
+      return value.map(_formatValue).join(', ');
+    }
+
+    if (value is Map<String, Object?>) {
+      return '{${_entitlementLines(value).join('; ')}}';
+    }
+
+    return '$value';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Provisioning Profile解析',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF23313C),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '支持选择或拖拽 .mobileprovision，查看签名配置、Entitlements、证书摘要和设备列表。',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: const Color(0xFF607180),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MobileProvisionDropPanel(
+                isDraggingFile: _isDraggingFile,
+                isLoading: _isLoading,
+                statusText: _statusText,
+                errorText: _errorText,
+                selectedPath: _info?.filePath,
+                onDragEntered: () {
+                  setState(() {
+                    _isDraggingFile = true;
+                  });
+                },
+                onDragExited: () {
+                  setState(() {
+                    _isDraggingFile = false;
+                  });
+                },
+                onDropFiles: (List<DropItem> files) async {
+                  setState(() {
+                    _isDraggingFile = false;
+                  });
+                  await _handleDropFiles(files);
+                },
+                onPickFile: _handlePickFile,
+                onClear: _handleClear,
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: _MobileProvisionResultPanel(
+                  info: _info,
+                  onCopySummary: _handleCopySummary,
+                  onCopyBundleId: _handleCopyBundleId,
+                  formatDateTime: _formatDateTime,
+                  formatValue: _formatValue,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileProvisionDropPanel extends StatelessWidget {
+  const _MobileProvisionDropPanel({
+    required this.isDraggingFile,
+    required this.isLoading,
+    required this.statusText,
+    required this.errorText,
+    required this.selectedPath,
+    required this.onDragEntered,
+    required this.onDragExited,
+    required this.onDropFiles,
+    required this.onPickFile,
+    required this.onClear,
+  });
+
+  final bool isDraggingFile;
+  final bool isLoading;
+  final String? statusText;
+  final String? errorText;
+  final String? selectedPath;
+  final VoidCallback onDragEntered;
+  final VoidCallback onDragExited;
+  final Future<void> Function(List<DropItem> files) onDropFiles;
+  final VoidCallback onPickFile;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final borderColor = isDraggingFile
+        ? const Color(0xFF0F766E)
+        : const Color(0xFFD8E2E8);
+
+    return SizedBox(
+      width: 360,
+      child: DropTarget(
+        onDragEntered: (_) => onDragEntered(),
+        onDragExited: (_) => onDragExited(),
+        onDragDone: (DropDoneDetails details) async {
+          await onDropFiles(details.files);
+        },
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7FAFB),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: borderColor,
+              width: isDraggingFile ? 1.4 : 1,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 92,
+                  height: 92,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF7F6),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Icon(
+                    isLoading
+                        ? Icons.hourglass_top_rounded
+                        : Icons.verified_user_rounded,
+                    size: 46,
+                    color: const Color(0xFF0F766E),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  isLoading ? '正在解析...' : '拖拽 Profile 到这里',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF23313C),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '支持 .mobileprovision 和 .provisionprofile 文件。',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF607180),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: isLoading ? null : onPickFile,
+                      icon: const Icon(Icons.upload_file_rounded),
+                      label: const Text('选择文件'),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton.icon(
+                      onPressed: isLoading ? null : onClear,
+                      icon: const Icon(Icons.cleaning_services_rounded),
+                      label: const Text('清空'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                if (selectedPath != null)
+                  _StatusBanner(
+                    message: selectedPath!,
+                    icon: Icons.description_rounded,
+                    isError: false,
+                  ),
+                if (statusText != null) ...[
+                  if (selectedPath != null) const SizedBox(height: 10),
+                  _StatusBanner(
+                    message: statusText!,
+                    icon: Icons.check_circle_rounded,
+                    isError: false,
+                  ),
+                ],
+                if (errorText != null) ...[
+                  if (selectedPath != null || statusText != null)
+                    const SizedBox(height: 10),
+                  _StatusBanner(
+                    message: errorText!,
+                    icon: Icons.error_outline_rounded,
+                    isError: true,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileProvisionResultPanel extends StatelessWidget {
+  const _MobileProvisionResultPanel({
+    required this.info,
+    required this.onCopySummary,
+    required this.onCopyBundleId,
+    required this.formatDateTime,
+    required this.formatValue,
+  });
+
+  final MobileProvisionProfileInfo? info;
+  final VoidCallback onCopySummary;
+  final VoidCallback onCopyBundleId;
+  final String Function(DateTime? value) formatDateTime;
+  final String Function(Object? value) formatValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final info = this.info;
+
+    if (info == null) {
+      return const _EmptyResultPanel();
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFB),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFD8E2E8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ResultHeader(
+              info: info,
+              onCopySummary: onCopySummary,
+              onCopyBundleId: onCopyBundleId,
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                children: [
+                  _InfoSection(
+                    title: '基础信息',
+                    rows: [
+                      _InfoRow('名称', info.name),
+                      _InfoRow('UUID', info.uuid),
+                      _InfoRow('类型', info.profileKindLabel),
+                      _InfoRow('App ID 名称', info.appIdName ?? '-'),
+                      _InfoRow('Team', info.teamName ?? '-'),
+                      _InfoRow('Team ID', _joinValues(info.teamIdentifiers)),
+                      _InfoRow(
+                        'App ID Prefix',
+                        _joinValues(info.appIdentifierPrefixes),
+                      ),
+                      _InfoRow('Bundle ID', info.bundleIdentifier ?? '-'),
+                      _InfoRow(
+                        'Application ID',
+                        info.applicationIdentifier ?? '-',
+                      ),
+                      _InfoRow('平台', _joinValues(info.platforms)),
+                      _InfoRow('创建时间', formatDateTime(info.creationDate)),
+                      _InfoRow('过期时间', formatDateTime(info.expirationDate)),
+                      _InfoRow('有效天数', info.timeToLive?.toString() ?? '-'),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _EntitlementsSection(
+                    entitlements: info.entitlements,
+                    formatValue: formatValue,
+                  ),
+                  const SizedBox(height: 14),
+                  _CertificatesSection(certificates: info.certificates),
+                  const SizedBox(height: 14),
+                  _DevicesSection(devices: info.provisionedDevices),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _joinValues(List<String> values) {
+    if (values.isEmpty) {
+      return '-';
+    }
+
+    return values.join(', ');
+  }
+}
+
+class _ResultHeader extends StatelessWidget {
+  const _ResultHeader({
+    required this.info,
+    required this.onCopySummary,
+    required this.onCopyBundleId,
+  });
+
+  final MobileProvisionProfileInfo info;
+  final VoidCallback onCopySummary;
+  final VoidCallback onCopyBundleId;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = info.isExpired
+        ? const Color(0xFFB42318)
+        : const Color(0xFF0F766E);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            info.isExpired
+                ? Icons.warning_amber_rounded
+                : Icons.verified_rounded,
+            color: statusColor,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                info.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF23313C),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                info.isExpired ? 'Profile 已过期' : info.profileKindLabel,
+                style: TextStyle(
+                  color: statusColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: info.bundleIdentifier == null ? null : onCopyBundleId,
+          icon: const Icon(Icons.copy_rounded, size: 18),
+          label: const Text('Bundle ID'),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          onPressed: onCopySummary,
+          icon: const Icon(Icons.copy_all_rounded, size: 18),
+          label: const Text('复制摘要'),
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoSection extends StatelessWidget {
+  const _InfoSection({required this.title, required this.rows});
+
+  final String title;
+  final List<_InfoRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionFrame(
+      title: title,
+      child: Column(
+        children: rows
+            .map(
+              (_InfoRow row) =>
+                  _KeyValueRow(label: row.label, value: row.value),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _EntitlementsSection extends StatelessWidget {
+  const _EntitlementsSection({
+    required this.entitlements,
+    required this.formatValue,
+  });
+
+  final Map<String, Object?> entitlements;
+  final String Function(Object? value) formatValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final keys = entitlements.keys.toList()..sort();
+
+    return _SectionFrame(
+      title: 'Entitlements',
+      child: keys.isEmpty
+          ? const _MutedText('未读取到 Entitlements。')
+          : Column(
+              children: keys
+                  .map(
+                    (String key) => _KeyValueRow(
+                      label: key,
+                      value: formatValue(entitlements[key]),
+                    ),
+                  )
+                  .toList(),
+            ),
+    );
+  }
+}
+
+class _CertificatesSection extends StatelessWidget {
+  const _CertificatesSection({required this.certificates});
+
+  final List<MobileProvisionCertificateInfo> certificates;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionFrame(
+      title: '证书摘要',
+      child: certificates.isEmpty
+          ? const _MutedText('未读取到 DeveloperCertificates。')
+          : Column(
+              children: certificates
+                  .map(
+                    (MobileProvisionCertificateInfo certificate) =>
+                        _CertificateTile(certificate: certificate),
+                  )
+                  .toList(),
+            ),
+    );
+  }
+}
+
+class _DevicesSection extends StatelessWidget {
+  const _DevicesSection({required this.devices});
+
+  final List<String> devices;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayDevices = devices.take(80).toList();
+
+    return _SectionFrame(
+      title: '设备 UDID',
+      child: devices.isEmpty
+          ? const _MutedText('未限制设备，通常用于 App Store 或 Enterprise Profile。')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: displayDevices
+                      .map((String device) => _DeviceChip(device: device))
+                      .toList(),
+                ),
+                if (devices.length > displayDevices.length) ...[
+                  const SizedBox(height: 10),
+                  _MutedText(
+                    '还有 ${devices.length - displayDevices.length} 个设备未展开显示。',
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _SectionFrame extends StatelessWidget {
+  const _SectionFrame({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD8E2E8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: const Color(0xFF23313C),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _KeyValueRow extends StatelessWidget {
+  const _KeyValueRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF607180),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              value,
+              style: const TextStyle(
+                color: Color(0xFF23313C),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CertificateTile extends StatelessWidget {
+  const _CertificateTile({required this.certificate});
+
+  final MobileProvisionCertificateInfo certificate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7FAFB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFD8E2E8)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '证书 ${certificate.index} · ${certificate.byteLength} bytes',
+                style: const TextStyle(
+                  color: Color(0xFF23313C),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _KeyValueRow(label: 'SHA-1', value: certificate.sha1),
+              _KeyValueRow(label: 'SHA-256', value: certificate.sha256),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceChip extends StatelessWidget {
+  const _DeviceChip({required this.device});
+
+  final String device;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 260),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF7F6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD1E8E4)),
+      ),
+      child: Text(
+        device,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Color(0xFF0F766E),
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({
+    required this.message,
+    required this.icon,
+    required this.isError,
+  });
+
+  final String message;
+  final IconData icon;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = isError
+        ? const Color(0xFF9F1239)
+        : const Color(0xFF0F766E);
+    final background = isError
+        ? const Color(0xFFFFEEF2)
+        : const Color(0xFFEAF7F6);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: foreground.withValues(alpha: 0.18)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: foreground, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: foreground,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyResultPanel extends StatelessWidget {
+  const _EmptyResultPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFB),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFD8E2E8)),
+      ),
+      child: Center(
+        child: Text(
+          '选择 Profile 后会显示 Bundle ID、Entitlements、证书和设备信息。',
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF607180)),
+        ),
+      ),
+    );
+  }
+}
+
+class _MutedText extends StatelessWidget {
+  const _MutedText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF607180)),
+    );
+  }
+}
+
+class _InfoRow {
+  const _InfoRow(this.label, this.value);
+
+  final String label;
+  final String value;
+}

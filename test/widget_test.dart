@@ -535,4 +535,23 @@ void main() {
 
     expect(find.text('请先输入要生成二维码的内容。'), findsOneWidget);
   });
+
+  testWidgets('mobileprovision profile page shows drop zone and empty result', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, 'Profile解析');
+
+    expect(find.byType(DropTarget), findsOneWidget);
+    expect(find.text('拖拽 Profile 到这里'), findsOneWidget);
+    expect(find.text('选择文件'), findsOneWidget);
+    expect(
+      find.text('支持 .mobileprovision 和 .provisionprofile 文件。'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('选择 Profile 后会显示 Bundle ID、Entitlements、证书和设备信息。'),
+      findsOneWidget,
+    );
+  });
 }

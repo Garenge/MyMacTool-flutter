@@ -45,6 +45,11 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
 - 二维码工具
   - 支持输入字符串生成二维码，可选择生成前 URL 编码
   - 支持粘贴、选择或拖拽图片解析二维码内容
+- Provisioning Profile 解析
+  - 支持选择或拖拽 `.mobileprovision` / `.provisionprofile` 文件
+  - 支持展示 Profile 名称、UUID、Team ID、Bundle ID、平台、创建和过期时间
+  - 支持展示 Entitlements、开发证书摘要、设备 UDID 列表和过期状态
+  - 支持复制 Bundle ID 和 Profile 摘要
 - Lottie 预览
   - 支持选择多个 JSON 文件或拖拽导入
   - 支持多动画叠加预览、选择、反选、清空
@@ -70,6 +75,7 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
 - `qr_flutter`：二维码生成
 - `pasteboard`：剪贴板图片读取
 - `zxing2`：二维码图片解析
+- `xml`：plist / mobileprovision XML 解析
 
 ## 项目结构
 
@@ -87,6 +93,8 @@ lib/
     json_formatter_page.dart
     jwt_decoder_page.dart
     lottie_preview_page.dart
+    mobileprovision_profile_info.dart
+    mobileprovision_profile_page.dart
     qr_code_tool_page.dart
     radix_converter_page.dart
     svg_preview_page.dart
@@ -95,23 +103,58 @@ lib/
     tool_shell_page.dart
 ```
 
-## 后续工具候选
+## 后续路线图
 
-这些工具和当前项目定位比较契合，单个功能边界清晰，适合逐步补充：
+这些任务按“最能增强当前工具箱气质”和“实现后能复用能力”的顺序排列。已经实现的工具能力不再放入候选区，只在当前功能中维护。
+
+### P0：移动端排查能力
 
 1. Plist / Info.plist 查看器
-   - 和 IPA 解析场景强相关
-   - 后续可从解包结果里直接读取 Bundle ID、Version、Display Name
-2. URL Query 格式化工具
-   - 支持参数解析、排序、复制单项参数和重新组装 URL
-3. UUID / 随机字符串生成器
-   - 支持 UUID v4、指定长度随机串和批量生成
+   - 支持 XML plist 和 binary plist 读取
+   - 支持树形查看、搜索 key、复制 value、格式化导出
+   - 后续可从 IPA 解析页面一键打开解包出的 `Info.plist`
+2. IPA 与 Profile 联动
+   - 从 IPA 解包结果中读取 `embedded.mobileprovision`
+   - 将 IPA 的 Bundle ID、Team ID 与 Profile 解析结果做一致性提示
+   - 显示签名、证书、权限、支持设备等排查信息
 
-推荐优先级：
+### P1：开发日常高频工具
 
-1. URL Query 格式化工具：可和编码转换能力互补
-2. Plist / Info.plist 查看器：延续 IPA 解析能力，强化 iOS 工具特色
-3. UUID / 随机字符串生成器：实现轻量，适合日常调试
+1. UUID / 随机字符串生成器
+   - 支持 UUID v4、批量生成、指定数量复制
+   - 支持按长度生成随机字符串，可选大小写、数字、符号
+   - 支持生成历史和一键复制全部
+2. 正则表达式测试工具
+   - 支持输入 pattern 和测试文本
+   - 展示匹配分组、全局匹配结果、替换预览
+   - 支持常用 flag 切换和错误提示
+3. 文本 Diff 工具
+   - 支持左右文本对比、行级差异、复制合并结果
+   - 适合和 JSON 格式化、编码转换配合使用
+
+### P2：现有工具增强
+
+1. 颜色转换增强
+   - 补充 HSL / HSV / CMYK 输出
+   - 增加设计标注常用格式复制模板
+2. 二维码工具增强
+   - 支持从解析结果直接打开 URL 或复制 URL 编码内容
+   - 支持二维码纠错等级、尺寸、前景色、背景色配置
+3. 解析类工具体验增强
+   - 给 IPA、Profile、图片信息等工具补充最近记录
+   - 统一复制摘要、复制路径、清空结果等操作反馈
+
+### P3：工程维护
+
+1. 抽取通用文件导入组件
+   - 将选择文件、拖拽文件、错误提示、复制结果等重复逻辑沉淀为共享组件
+   - 优先服务 IPA、图片信息、Lottie、二维码、后续 plist/mobileprovision 页面
+2. 拆分巨型页面
+   - `svg_preview_page.dart`、`qr_code_tool_page.dart`、`ipa_unpack_page.dart`、`lottie_preview_page.dart` 已接近或超过 900 行
+   - 后续修改相关页面时，优先拆出 parser、model、result view、toolbar 等私有模块
+3. 拓展测试覆盖
+   - 为解析类工具补充纯 Dart parser 单元测试
+   - 为拖拽、粘贴、复制等桌面交互保留关键 widget 测试
 
 ## 本地运行
 
