@@ -388,6 +388,67 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
     });
   }
 
+  Future<void> _handleCopyUrlEncodedDecodedResult() async {
+    final text = _decodeResultController.text;
+
+    if (text.trim().isEmpty) {
+      setState(() {
+        _decodeErrorText = '当前没有可编码的解析结果。';
+        _decodeStatusText = null;
+      });
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: Uri.encodeComponent(text)));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _decodeStatusText = '已复制 URL 编码后的解析结果。';
+      _decodeErrorText = null;
+    });
+  }
+
+  Future<void> _handleOpenDecodedUrl() async {
+    final text = _decodeResultController.text.trim();
+
+    if (!_looksLikeUrl(text)) {
+      setState(() {
+        _decodeErrorText = '解析结果不是可打开的 URL。';
+        _decodeStatusText = null;
+      });
+      return;
+    }
+
+    try {
+      final result = await Process.run('open', <String>[text]);
+
+      if (result.exitCode != 0) {
+        throw ProcessException('open', <String>[text], '${result.stderr}');
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _decodeStatusText = '已打开解析出的 URL。';
+        _decodeErrorText = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _decodeErrorText = '打开 URL 失败，请检查内容是否有效。';
+        _decodeStatusText = null;
+      });
+    }
+  }
+
   void _handleClearDecodeResult() {
     setState(() {
       _decodeResultController.clear();
@@ -401,6 +462,8 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
     final uri = Uri.tryParse(value);
     return uri != null && uri.hasScheme && uri.host.isNotEmpty;
   }
+
+  bool get _canOpenDecodedUrl => _looksLikeUrl(_decodeResultController.text);
 
   @override
   Widget build(BuildContext context) {
@@ -493,6 +556,9 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
                     onPickImage: _handlePickImage,
                     onPasteImage: _handlePasteImage,
                     onCopyResult: _handleCopyDecodedResult,
+                    onCopyUrlEncodedResult: _handleCopyUrlEncodedDecodedResult,
+                    onOpenUrl: _handleOpenDecodedUrl,
+                    canOpenUrl: _canOpenDecodedUrl,
                     onClear: _handleClearDecodeResult,
                   ),
                 ),
@@ -737,6 +803,9 @@ class _QrDecodePanel extends StatelessWidget {
     required this.onPickImage,
     required this.onPasteImage,
     required this.onCopyResult,
+    required this.onCopyUrlEncodedResult,
+    required this.onOpenUrl,
+    required this.canOpenUrl,
     required this.onClear,
   });
 
@@ -752,6 +821,9 @@ class _QrDecodePanel extends StatelessWidget {
   final VoidCallback onPickImage;
   final VoidCallback onPasteImage;
   final VoidCallback onCopyResult;
+  final VoidCallback onCopyUrlEncodedResult;
+  final VoidCallback onOpenUrl;
+  final bool canOpenUrl;
   final VoidCallback onClear;
 
   @override
@@ -843,6 +915,16 @@ class _QrDecodePanel extends StatelessWidget {
                     onPressed: onCopyResult,
                     icon: const Icon(Icons.copy_rounded, size: 18),
                     label: const Text('复制结果'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onCopyUrlEncodedResult,
+                    icon: const Icon(Icons.link_rounded, size: 18),
+                    label: const Text('复制URL编码'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: canOpenUrl ? onOpenUrl : null,
+                    icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                    label: const Text('打开URL'),
                   ),
                   OutlinedButton.icon(
                     onPressed: onClear,

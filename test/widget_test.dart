@@ -522,6 +522,8 @@ void main() {
     expect(find.text('支持粘贴、拖拽或选择二维码图片。'), findsOneWidget);
     expect(find.text('解析结果'), findsOneWidget);
     expect(find.text('粘贴解析'), findsOneWidget);
+    expect(find.text('复制URL编码'), findsOneWidget);
+    expect(find.text('打开URL'), findsOneWidget);
     expect(find.text('输入字符串后会在这里生成二维码。'), findsNothing);
   });
 
