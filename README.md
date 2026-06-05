@@ -58,6 +58,10 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持批量生成 UUID v4
   - 支持按长度批量生成随机字符串，可选择小写、大写、数字、符号
   - 支持复制单项结果和全部结果
+- 正则测试
+  - 支持输入正则表达式、测试文本和替换文本
+  - 支持区分大小写、多行、DotAll、Unicode 开关
+  - 支持展示全局匹配结果、捕获分组和替换预览
 - Lottie 预览
   - 支持选择多个 JSON 文件或拖拽导入
   - 支持多动画叠加预览、选择、反选、清空
@@ -110,6 +114,7 @@ lib/
     qr_code_tool_page.dart
     radix_converter_page.dart
     random_string_generator_page.dart
+    regex_tester_page.dart
     svg_preview_page.dart
     timestamp_converter_page.dart
     color_converter_page.dart
@@ -129,11 +134,7 @@ lib/
 
 ### P1：开发日常高频工具
 
-1. 正则表达式测试工具
-   - 支持输入 pattern 和测试文本
-   - 展示匹配分组、全局匹配结果、替换预览
-   - 支持常用 flag 切换和错误提示
-2. 文本 Diff 工具
+1. 文本 Diff 工具
    - 支持左右文本对比、行级差异、复制合并结果
    - 适合和 JSON 格式化、编码转换配合使用
 

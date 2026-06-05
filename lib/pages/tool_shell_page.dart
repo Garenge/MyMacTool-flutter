@@ -13,6 +13,7 @@ import 'plist_document_page.dart';
 import 'qr_code_tool_page.dart';
 import 'radix_converter_page.dart';
 import 'random_string_generator_page.dart';
+import 'regex_tester_page.dart';
 import 'svg_preview_page.dart';
 import 'timestamp_converter_page.dart';
 
@@ -30,6 +31,7 @@ enum ToolItem {
   mobileProvisionProfile,
   plistDocument,
   randomStringGenerator,
+  regexTester,
   lottiePreview,
   ipaUnpack,
 }
@@ -111,6 +113,11 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.randomStringGenerator,
     title: '随机生成',
     icon: Icons.password_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.regexTester,
+    title: '正则测试',
+    icon: Icons.manage_search_rounded,
   ),
   _ToolDefinition(
     tool: ToolItem.lottiePreview,
@@ -208,6 +215,8 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const PlistDocumentPage();
       case ToolItem.randomStringGenerator:
         return const RandomStringGeneratorPage();
+      case ToolItem.regexTester:
+        return const RegexTesterPage();
       case ToolItem.lottiePreview:
         return const LottiePreviewPage();
       case ToolItem.ipaUnpack:

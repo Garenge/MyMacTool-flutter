@@ -593,4 +593,33 @@ void main() {
 
     expect(find.text('已生成 5 个随机字符串。'), findsOneWidget);
   });
+
+  testWidgets('regex tester shows matches groups and replacement preview', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '正则测试');
+
+    expect(find.text('正则表达式'), findsOneWidget);
+    expect(find.text('匹配结果和替换预览会显示在这里。'), findsOneWidget);
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), r'(\w+)');
+    await tester.enterText(fields.at(1), 'foo bar');
+    await tester.enterText(fields.at(2), 'X');
+    await tester.tap(find.text('测试正则'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('匹配到 2 处结果。'), findsOneWidget);
+    expect(find.text('Match 1 · 0-3'), findsOneWidget);
+    expect(find.text('Match 2 · 4-7'), findsOneWidget);
+    expect(find.text('Group 1'), findsWidgets);
+    expect(find.text('替换预览'), findsWidgets);
+    expect(find.text('X X'), findsOneWidget);
+  });
 }
