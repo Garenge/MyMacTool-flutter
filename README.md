@@ -53,6 +53,7 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持展示 Profile 名称、UUID、Team ID、Bundle ID、平台、创建和过期时间
   - 支持展示 Entitlements、开发证书摘要、设备 UDID 列表和过期状态
   - 支持复制 Bundle ID 和 Profile 摘要
+  - 支持最近解析记录恢复
 - Plist 查看
   - 支持选择或拖拽 XML plist / binary plist 文件
   - 支持将 plist 格式化为树形节点，展示 key、path、类型和值
@@ -151,7 +152,6 @@ lib/
 2. 二维码工具增强
    - 支持更多码点样式和 Logo 嵌入
 3. 解析类工具体验增强
-   - 给 Profile 等工具补充最近记录
    - 继续统一复制摘要、复制路径、清空结果等操作反馈
 
 ### P3：工程维护

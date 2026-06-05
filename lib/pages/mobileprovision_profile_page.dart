@@ -28,6 +28,8 @@ class _MobileProvisionProfilePageState
   MobileProvisionProfileInfo? _info;
   String? _statusText;
   String? _errorText;
+  final List<MobileProvisionProfileInfo> _records =
+      <MobileProvisionProfileInfo>[];
 
   Future<void> _handlePickFile() async {
     final file = await openFile(
@@ -90,6 +92,7 @@ class _MobileProvisionProfilePageState
 
       setState(() {
         _info = info;
+        _prependRecord(info);
         _statusText = info.isExpired ? '解析完成，Profile 已过期。' : '解析完成。';
         _errorText = null;
       });
@@ -160,12 +163,31 @@ class _MobileProvisionProfilePageState
     });
   }
 
+  void _handleSelectRecord(MobileProvisionProfileInfo info) {
+    setState(() {
+      _info = info;
+      _statusText = '已恢复最近记录。';
+      _errorText = null;
+    });
+  }
+
   void _handleClear() {
     setState(() {
       _info = null;
       _statusText = null;
       _errorText = null;
     });
+  }
+
+  void _prependRecord(MobileProvisionProfileInfo info) {
+    _records.removeWhere(
+      (MobileProvisionProfileInfo record) => record.filePath == info.filePath,
+    );
+    _records.insert(0, info);
+
+    if (_records.length > 8) {
+      _records.removeRange(8, _records.length);
+    }
   }
 
   bool _isProvisionPath(String path) {
@@ -299,8 +321,10 @@ class _MobileProvisionProfilePageState
               Expanded(
                 child: _MobileProvisionResultPanel(
                   info: _info,
+                  records: _records,
                   onCopySummary: _handleCopySummary,
                   onCopyBundleId: _handleCopyBundleId,
+                  onSelectRecord: _handleSelectRecord,
                   formatDateTime: _formatDateTime,
                   formatValue: _formatValue,
                 ),
@@ -452,25 +476,25 @@ class _MobileProvisionDropPanel extends StatelessWidget {
 class _MobileProvisionResultPanel extends StatelessWidget {
   const _MobileProvisionResultPanel({
     required this.info,
+    required this.records,
     required this.onCopySummary,
     required this.onCopyBundleId,
+    required this.onSelectRecord,
     required this.formatDateTime,
     required this.formatValue,
   });
 
   final MobileProvisionProfileInfo? info;
+  final List<MobileProvisionProfileInfo> records;
   final VoidCallback onCopySummary;
   final VoidCallback onCopyBundleId;
+  final ValueChanged<MobileProvisionProfileInfo> onSelectRecord;
   final String Function(DateTime? value) formatDateTime;
   final String Function(Object? value) formatValue;
 
   @override
   Widget build(BuildContext context) {
     final info = this.info;
-
-    if (info == null) {
-      return const _EmptyResultPanel();
-    }
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -483,48 +507,60 @@ class _MobileProvisionResultPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _ResultHeader(
-              info: info,
-              onCopySummary: onCopySummary,
-              onCopyBundleId: onCopyBundleId,
-            ),
-            const SizedBox(height: 16),
             Expanded(
               child: ListView(
                 children: [
-                  _InfoSection(
-                    title: '基础信息',
-                    rows: [
-                      _InfoRow('名称', info.name),
-                      _InfoRow('UUID', info.uuid),
-                      _InfoRow('类型', info.profileKindLabel),
-                      _InfoRow('App ID 名称', info.appIdName ?? '-'),
-                      _InfoRow('Team', info.teamName ?? '-'),
-                      _InfoRow('Team ID', _joinValues(info.teamIdentifiers)),
-                      _InfoRow(
-                        'App ID Prefix',
-                        _joinValues(info.appIdentifierPrefixes),
-                      ),
-                      _InfoRow('Bundle ID', info.bundleIdentifier ?? '-'),
-                      _InfoRow(
-                        'Application ID',
-                        info.applicationIdentifier ?? '-',
-                      ),
-                      _InfoRow('平台', _joinValues(info.platforms)),
-                      _InfoRow('创建时间', formatDateTime(info.creationDate)),
-                      _InfoRow('过期时间', formatDateTime(info.expirationDate)),
-                      _InfoRow('有效天数', info.timeToLive?.toString() ?? '-'),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _EntitlementsSection(
-                    entitlements: info.entitlements,
-                    formatValue: formatValue,
-                  ),
-                  const SizedBox(height: 14),
-                  _CertificatesSection(certificates: info.certificates),
-                  const SizedBox(height: 14),
-                  _DevicesSection(devices: info.provisionedDevices),
+                  if (info == null)
+                    const SizedBox(height: 240, child: _EmptyResultPanel())
+                  else ...[
+                    _ResultHeader(
+                      info: info,
+                      onCopySummary: onCopySummary,
+                      onCopyBundleId: onCopyBundleId,
+                    ),
+                    const SizedBox(height: 16),
+                    _InfoSection(
+                      title: '基础信息',
+                      rows: [
+                        _InfoRow('名称', info.name),
+                        _InfoRow('UUID', info.uuid),
+                        _InfoRow('类型', info.profileKindLabel),
+                        _InfoRow('App ID 名称', info.appIdName ?? '-'),
+                        _InfoRow('Team', info.teamName ?? '-'),
+                        _InfoRow('Team ID', _joinValues(info.teamIdentifiers)),
+                        _InfoRow(
+                          'App ID Prefix',
+                          _joinValues(info.appIdentifierPrefixes),
+                        ),
+                        _InfoRow('Bundle ID', info.bundleIdentifier ?? '-'),
+                        _InfoRow(
+                          'Application ID',
+                          info.applicationIdentifier ?? '-',
+                        ),
+                        _InfoRow('平台', _joinValues(info.platforms)),
+                        _InfoRow('创建时间', formatDateTime(info.creationDate)),
+                        _InfoRow('过期时间', formatDateTime(info.expirationDate)),
+                        _InfoRow('有效天数', info.timeToLive?.toString() ?? '-'),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _EntitlementsSection(
+                      entitlements: info.entitlements,
+                      formatValue: formatValue,
+                    ),
+                    const SizedBox(height: 14),
+                    _CertificatesSection(certificates: info.certificates),
+                    const SizedBox(height: 14),
+                    _DevicesSection(devices: info.provisionedDevices),
+                  ],
+                  if (records.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _ProfileRecordSection(
+                      records: records,
+                      onSelectRecord: onSelectRecord,
+                      formatDateTime: formatDateTime,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -540,6 +576,101 @@ class _MobileProvisionResultPanel extends StatelessWidget {
     }
 
     return values.join(', ');
+  }
+}
+
+class _ProfileRecordSection extends StatelessWidget {
+  const _ProfileRecordSection({
+    required this.records,
+    required this.onSelectRecord,
+    required this.formatDateTime,
+  });
+
+  final List<MobileProvisionProfileInfo> records;
+  final ValueChanged<MobileProvisionProfileInfo> onSelectRecord;
+  final String Function(DateTime? value) formatDateTime;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionFrame(
+      title: '最近记录',
+      child: Column(
+        children: records
+            .map(
+              (MobileProvisionProfileInfo record) => _ProfileRecordTile(
+                info: record,
+                onTap: () => onSelectRecord(record),
+                formatDateTime: formatDateTime,
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _ProfileRecordTile extends StatelessWidget {
+  const _ProfileRecordTile({
+    required this.info,
+    required this.onTap,
+    required this.formatDateTime,
+  });
+
+  final MobileProvisionProfileInfo info;
+  final VoidCallback onTap;
+  final String Function(DateTime? value) formatDateTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = info.isExpired
+        ? const Color(0xFFB42318)
+        : const Color(0xFF0F766E);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.verified_user_rounded, color: statusColor, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      info.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF23313C),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${info.bundleIdentifier ?? '-'} · ${formatDateTime(info.expirationDate)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF607180),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF607180)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -922,20 +1053,13 @@ class _EmptyResultPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FAFB),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFD8E2E8)),
-      ),
-      child: Center(
-        child: Text(
-          '选择 Profile 后会显示 Bundle ID、Entitlements、证书和设备信息。',
-          textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF607180)),
-        ),
+    return Center(
+      child: Text(
+        '选择 Profile 后会显示 Bundle ID、Entitlements、证书和设备信息。',
+        textAlign: TextAlign.center,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF607180)),
       ),
     );
   }
