@@ -62,6 +62,10 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持输入正则表达式、测试文本和替换文本
   - 支持区分大小写、多行、DotAll、Unicode 开关
   - 支持展示全局匹配结果、捕获分组和替换预览
+- 文本 Diff
+  - 支持输入左右两段文本并进行行级对比
+  - 支持展示相同、新增、删除行及左右行号
+  - 支持复制 Diff 结果
 - Lottie 预览
   - 支持选择多个 JSON 文件或拖拽导入
   - 支持多动画叠加预览、选择、反选、清空
@@ -116,6 +120,7 @@ lib/
     random_string_generator_page.dart
     regex_tester_page.dart
     svg_preview_page.dart
+    text_diff_page.dart
     timestamp_converter_page.dart
     color_converter_page.dart
     tool_shell_page.dart
@@ -134,9 +139,7 @@ lib/
 
 ### P1：开发日常高频工具
 
-1. 文本 Diff 工具
-   - 支持左右文本对比、行级差异、复制合并结果
-   - 适合和 JSON 格式化、编码转换配合使用
+当前 P1 候选已实现，后续可根据使用频率补充新的轻量工具。
 
 ### P2：现有工具增强
 

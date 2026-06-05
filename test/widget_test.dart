@@ -622,4 +622,32 @@ void main() {
     expect(find.text('替换预览'), findsWidgets);
     expect(find.text('X X'), findsOneWidget);
   });
+
+  testWidgets('text diff tool shows added and removed lines', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '文本Diff');
+
+    expect(find.text('左侧文本'), findsOneWidget);
+    expect(find.text('右侧文本'), findsOneWidget);
+    expect(find.text('对比结果会显示在这里。'), findsOneWidget);
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'a\nb\nc');
+    await tester.enterText(fields.at(1), 'a\nx\nc');
+    await tester.tap(find.text('对比'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('对比完成，发现 2 行差异。'), findsOneWidget);
+    expect(find.text('-'), findsOneWidget);
+    expect(find.text('+'), findsOneWidget);
+    expect(find.text('b'), findsOneWidget);
+    expect(find.text('x'), findsOneWidget);
+  });
 }

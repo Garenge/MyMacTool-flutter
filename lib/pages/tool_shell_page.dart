@@ -15,6 +15,7 @@ import 'radix_converter_page.dart';
 import 'random_string_generator_page.dart';
 import 'regex_tester_page.dart';
 import 'svg_preview_page.dart';
+import 'text_diff_page.dart';
 import 'timestamp_converter_page.dart';
 
 enum ToolItem {
@@ -32,6 +33,7 @@ enum ToolItem {
   plistDocument,
   randomStringGenerator,
   regexTester,
+  textDiff,
   lottiePreview,
   ipaUnpack,
 }
@@ -118,6 +120,11 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.regexTester,
     title: '正则测试',
     icon: Icons.manage_search_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.textDiff,
+    title: '文本Diff',
+    icon: Icons.difference_rounded,
   ),
   _ToolDefinition(
     tool: ToolItem.lottiePreview,
@@ -217,6 +224,8 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const RandomStringGeneratorPage();
       case ToolItem.regexTester:
         return const RegexTesterPage();
+      case ToolItem.textDiff:
+        return const TextDiffPage();
       case ToolItem.lottiePreview:
         return const LottiePreviewPage();
       case ToolItem.ipaUnpack:
