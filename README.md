@@ -29,7 +29,7 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持当前时间快捷填充
   - 支持单项结果复制
 - 颜色转换
-  - 支持 HEX、ARGB HEX、RGBA HEX、RGB、RGBA、Flutter `Color(0x...)` 互转
+  - 支持 HEX、ARGB HEX、RGBA HEX、RGB、RGBA、HSL、HSV、CMYK、Flutter `Color(0x...)` 互转
   - 支持从 `rgba(...)` 或 CSS `#RRGGBBAA` 反推 RGB HEX、ARGB HEX 和 RGBA HEX
   - 支持用 Flutter `Color(0xAARRGGBB)` 明确输入 ARGB 颜色
   - 支持颜色预览、通道值展示、单项结果复制
@@ -144,7 +144,6 @@ lib/
 ### P2：现有工具增强
 
 1. 颜色转换增强
-   - 补充 HSL / HSV / CMYK 输出
    - 增加设计标注常用格式复制模板
 2. 二维码工具增强
    - 支持从解析结果直接打开 URL 或复制 URL 编码内容

@@ -298,6 +298,9 @@ class _ColorResult {
     required this.rgbaHex,
     required this.rgb,
     required this.rgba,
+    required this.hsl,
+    required this.hsv,
+    required this.cmyk,
     required this.flutterColor,
     required this.statusText,
   });
@@ -319,6 +322,9 @@ class _ColorResult {
       rgb: 'rgb(${value.red}, ${value.green}, ${value.blue})',
       rgba:
           'rgba(${value.red}, ${value.green}, ${value.blue}, ${_formatAlpha(value.alpha)})',
+      hsl: _formatHsl(value),
+      hsv: _formatHsv(value),
+      cmyk: _formatCmyk(value),
       flutterColor: 'Color(0x$alpha$red$green$blue)',
       statusText: statusText,
     );
@@ -330,6 +336,9 @@ class _ColorResult {
   final String rgbaHex;
   final String rgb;
   final String rgba;
+  final String hsl;
+  final String hsv;
+  final String cmyk;
   final String flutterColor;
   final String statusText;
 
@@ -341,6 +350,9 @@ class _ColorResult {
       rgbaHex: rgbaHex,
       rgb: rgb,
       rgba: rgba,
+      hsl: hsl,
+      hsv: hsv,
+      cmyk: cmyk,
       flutterColor: flutterColor,
       statusText: statusText,
     );
@@ -359,6 +371,73 @@ class _ColorResult {
     return alphaText
         .replaceFirst(RegExp(r'0+$'), '')
         .replaceFirst(RegExp(r'\.$'), '');
+  }
+
+  static String _formatHsl(_ColorValue value) {
+    final channels = _normalizedRgb(value);
+    final maxValue = channels.reduce((double a, double b) => a > b ? a : b);
+    final minValue = channels.reduce((double a, double b) => a < b ? a : b);
+    final delta = maxValue - minValue;
+    final lightness = (maxValue + minValue) / 2;
+    final saturation = delta == 0
+        ? 0.0
+        : delta / (1 - (2 * lightness - 1).abs());
+
+    return 'hsl(${_hueDegrees(channels, maxValue, delta)}, '
+        '${_percent(saturation)}, ${_percent(lightness)})';
+  }
+
+  static String _formatHsv(_ColorValue value) {
+    final channels = _normalizedRgb(value);
+    final maxValue = channels.reduce((double a, double b) => a > b ? a : b);
+    final minValue = channels.reduce((double a, double b) => a < b ? a : b);
+    final delta = maxValue - minValue;
+    final saturation = maxValue == 0 ? 0.0 : delta / maxValue;
+
+    return 'hsv(${_hueDegrees(channels, maxValue, delta)}, '
+        '${_percent(saturation)}, ${_percent(maxValue)})';
+  }
+
+  static String _formatCmyk(_ColorValue value) {
+    final channels = _normalizedRgb(value);
+    final maxValue = channels.reduce((double a, double b) => a > b ? a : b);
+    final black = 1 - maxValue;
+
+    if (black == 1) {
+      return 'cmyk(0%, 0%, 0%, 100%)';
+    }
+
+    final cyan = (1 - channels[0] - black) / (1 - black);
+    final magenta = (1 - channels[1] - black) / (1 - black);
+    final yellow = (1 - channels[2] - black) / (1 - black);
+
+    return 'cmyk(${_percent(cyan)}, ${_percent(magenta)}, '
+        '${_percent(yellow)}, ${_percent(black)})';
+  }
+
+  static List<double> _normalizedRgb(_ColorValue value) {
+    return <double>[value.red / 255, value.green / 255, value.blue / 255];
+  }
+
+  static int _hueDegrees(List<double> channels, double maxValue, double delta) {
+    if (delta == 0) {
+      return 0;
+    }
+
+    final red = channels[0];
+    final green = channels[1];
+    final blue = channels[2];
+    final hue = switch (maxValue) {
+      final value when value == red => ((green - blue) / delta) % 6,
+      final value when value == green => (blue - red) / delta + 2,
+      _ => (red - green) / delta + 4,
+    };
+
+    return (hue * 60).round() % 360;
+  }
+
+  static String _percent(double value) {
+    return '${(value * 100).round()}%';
   }
 }
 
@@ -494,6 +573,21 @@ class _ColorResultView extends StatelessWidget {
                 label: 'RGBA',
                 value: result.rgba,
                 onCopy: () => onCopyValue(result.rgba, '已复制 RGBA。'),
+              ),
+              _ColorResultTile(
+                label: 'HSL',
+                value: result.hsl,
+                onCopy: () => onCopyValue(result.hsl, '已复制 HSL。'),
+              ),
+              _ColorResultTile(
+                label: 'HSV',
+                value: result.hsv,
+                onCopy: () => onCopyValue(result.hsv, '已复制 HSV。'),
+              ),
+              _ColorResultTile(
+                label: 'CMYK',
+                value: result.cmyk,
+                onCopy: () => onCopyValue(result.cmyk, '已复制 CMYK。'),
               ),
               _ColorResultTile(
                 label: 'Flutter',

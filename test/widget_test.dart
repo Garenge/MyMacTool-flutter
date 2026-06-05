@@ -276,6 +276,12 @@ void main() {
       find.text('rgba(15, 118, 110, 1)', findRichText: true),
       findsOneWidget,
     );
+    expect(find.text('hsl(175, 77%, 26%)', findRichText: true), findsOneWidget);
+    expect(find.text('hsv(175, 87%, 46%)', findRichText: true), findsOneWidget);
+    expect(
+      find.text('cmyk(87%, 0%, 7%, 54%)', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('Color(0xFF0F766E)', findRichText: true), findsOneWidget);
     expect(find.text('转换完成。'), findsOneWidget);
   });
