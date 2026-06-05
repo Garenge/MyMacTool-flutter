@@ -35,6 +35,25 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> expectVisibleText(
+    WidgetTester tester,
+    String text, {
+    Finder? scrollable,
+  }) async {
+    final textFinder = find.text(text, findRichText: true);
+
+    if (textFinder.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        textFinder,
+        120,
+        scrollable: scrollable ?? find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(textFinder, findsOneWidget);
+  }
+
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (methodCall) async {
@@ -282,7 +301,17 @@ void main() {
       find.text('cmyk(87%, 0%, 7%, 54%)', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('Color(0xFF0F766E)', findRichText: true), findsOneWidget);
+    await expectVisibleText(tester, 'Color(0xFF0F766E)');
+    await expectVisibleText(tester, '--color-primary: #0F766E;');
+    await expectVisibleText(
+      tester,
+      'static const Color primary = Color(0xFF0F766E);',
+    );
+    await expectVisibleText(
+      tester,
+      'UIColor(red: 0.059, green: 0.463, blue: 0.431, alpha: 1)',
+    );
+    await expectVisibleText(tester, '<color name="primary">#FF0F766E</color>');
     expect(find.text('转换完成。'), findsOneWidget);
   });
 
@@ -311,7 +340,7 @@ void main() {
       find.text('rgba(15, 118, 110, 0.502)', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('Color(0x800F766E)', findRichText: true), findsOneWidget);
+    await expectVisibleText(tester, 'Color(0x800F766E)');
   });
 
   testWidgets('color converter accepts css rgba hex input', (

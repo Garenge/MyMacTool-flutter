@@ -302,6 +302,10 @@ class _ColorResult {
     required this.hsv,
     required this.cmyk,
     required this.flutterColor,
+    required this.cssVariable,
+    required this.flutterConst,
+    required this.swiftUIColor,
+    required this.androidColor,
     required this.statusText,
   });
 
@@ -326,6 +330,12 @@ class _ColorResult {
       hsv: _formatHsv(value),
       cmyk: _formatCmyk(value),
       flutterColor: 'Color(0x$alpha$red$green$blue)',
+      cssVariable: '--color-primary: #$red$green$blue;',
+      flutterConst:
+          'static const Color primary = Color(0x$alpha$red$green$blue);',
+      swiftUIColor:
+          'UIColor(red: ${_formatUnit(value.red)}, green: ${_formatUnit(value.green)}, blue: ${_formatUnit(value.blue)}, alpha: ${_formatAlpha(value.alpha)})',
+      androidColor: '<color name="primary">#$alpha$red$green$blue</color>',
       statusText: statusText,
     );
   }
@@ -340,6 +350,10 @@ class _ColorResult {
   final String hsv;
   final String cmyk;
   final String flutterColor;
+  final String cssVariable;
+  final String flutterConst;
+  final String swiftUIColor;
+  final String androidColor;
   final String statusText;
 
   _ColorResult copyWith({required String statusText}) {
@@ -354,6 +368,10 @@ class _ColorResult {
       hsv: hsv,
       cmyk: cmyk,
       flutterColor: flutterColor,
+      cssVariable: cssVariable,
+      flutterConst: flutterConst,
+      swiftUIColor: swiftUIColor,
+      androidColor: androidColor,
       statusText: statusText,
     );
   }
@@ -369,6 +387,13 @@ class _ColorResult {
 
     final alphaText = (alpha / 255).toStringAsFixed(3);
     return alphaText
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+  }
+
+  static String _formatUnit(int channel) {
+    final valueText = (channel / 255).toStringAsFixed(3);
+    return valueText
         .replaceFirst(RegExp(r'0+$'), '')
         .replaceFirst(RegExp(r'\.$'), '');
   }
@@ -549,6 +574,7 @@ class _ColorResultView extends StatelessWidget {
         Expanded(
           child: ListView(
             children: [
+              const _ColorResultGroupTitle('常用格式'),
               _ColorResultTile(
                 label: 'HEX',
                 value: result.hex,
@@ -595,10 +621,55 @@ class _ColorResultView extends StatelessWidget {
                 onCopy: () =>
                     onCopyValue(result.flutterColor, '已复制 Flutter Color。'),
               ),
+              const SizedBox(height: 8),
+              const _ColorResultGroupTitle('标注模板'),
+              _ColorResultTile(
+                label: 'CSS 变量',
+                value: result.cssVariable,
+                onCopy: () => onCopyValue(result.cssVariable, '已复制 CSS 变量。'),
+              ),
+              _ColorResultTile(
+                label: 'Flutter 常量',
+                value: result.flutterConst,
+                onCopy: () =>
+                    onCopyValue(result.flutterConst, '已复制 Flutter 常量。'),
+              ),
+              _ColorResultTile(
+                label: 'Swift UIColor',
+                value: result.swiftUIColor,
+                onCopy: () =>
+                    onCopyValue(result.swiftUIColor, '已复制 Swift UIColor。'),
+              ),
+              _ColorResultTile(
+                label: 'Android XML',
+                value: result.androidColor,
+                onCopy: () =>
+                    onCopyValue(result.androidColor, '已复制 Android XML。'),
+              ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ColorResultGroupTitle extends StatelessWidget {
+  const _ColorResultGroupTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: const Color(0xFF23313C),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }
