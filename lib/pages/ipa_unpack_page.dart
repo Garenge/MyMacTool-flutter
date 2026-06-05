@@ -122,9 +122,7 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
       setState(() {
         _outputDirectoryPath = outputDirectory.path;
         _appInfo = appInfo;
-        _statusText = appInfo == null
-            ? '解析完成，未读取到 Info.plist，已自动打开输出目录。'
-            : '解析完成，已读取应用信息并打开输出目录。';
+        _statusText = _buildParseStatusText(appInfo);
         _prependRecord(
           _IpaUnpackRecord(
             id: '${DateTime.now().microsecondsSinceEpoch}',
@@ -197,6 +195,23 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
     }
 
     throw UnsupportedError('当前仅支持在 macOS 上自动打开输出目录。');
+  }
+
+  Future<void> _revealFileInFinder(String path) async {
+    if (Platform.isMacOS) {
+      final result = await Process.run('open', <String>['-R', path]);
+
+      if (result.exitCode != 0) {
+        throw ProcessException('open', <String>[
+          '-R',
+          path,
+        ], '${result.stderr}');
+      }
+
+      return;
+    }
+
+    throw UnsupportedError('当前仅支持在 macOS 上定位文件。');
   }
 
   bool _isIpaPath(String path) {
@@ -333,6 +348,80 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
         _errorText = '打开当前输出目录失败。';
       });
     }
+  }
+
+  Future<void> _handleRevealInfoPlist() async {
+    final infoPlistPath = _appInfo?.infoPlistPath;
+
+    if (infoPlistPath == null || infoPlistPath.isEmpty) {
+      return;
+    }
+
+    try {
+      await _revealFileInFinder(infoPlistPath);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _statusText = '已定位 Info.plist。';
+        _errorText = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorText = '定位 Info.plist 失败。';
+      });
+    }
+  }
+
+  Future<void> _handleRevealEmbeddedProfile() async {
+    final embeddedProfilePath = _appInfo?.embeddedProfilePath;
+
+    if (embeddedProfilePath == null || embeddedProfilePath.isEmpty) {
+      return;
+    }
+
+    try {
+      await _revealFileInFinder(embeddedProfilePath);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _statusText = '已定位 embedded.mobileprovision。';
+        _errorText = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorText = '定位 embedded.mobileprovision 失败。';
+      });
+    }
+  }
+
+  String _buildParseStatusText(IpaAppInfo? appInfo) {
+    if (appInfo == null) {
+      return '解析完成，未读取到 Info.plist，已自动打开输出目录。';
+    }
+
+    if (appInfo.hasEmbeddedProfileInfo) {
+      return '解析完成，已读取应用信息和 embedded.mobileprovision，并打开输出目录。';
+    }
+
+    if (appInfo.hasEmbeddedProfile) {
+      return '解析完成，已读取应用信息；embedded.mobileprovision 暂未解析成功。';
+    }
+
+    return '解析完成，已读取应用信息并打开输出目录。';
   }
 
   String _fileNameOf(String path) {
@@ -551,7 +640,13 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
                                       ),
                                       const SizedBox(height: 12),
                                       Expanded(
-                                        child: _AppInfoBlock(appInfo: _appInfo),
+                                        child: _AppInfoBlock(
+                                          appInfo: _appInfo,
+                                          onRevealInfoPlist:
+                                              _handleRevealInfoPlist,
+                                          onRevealEmbeddedProfile:
+                                              _handleRevealEmbeddedProfile,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -713,6 +808,18 @@ class _IpaRecordCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (record.appInfo?.hasEmbeddedProfileInfo ?? false) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Profile: ${record.appInfo!.embeddedProfileInfo!.profileKindLabel}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF0F766E),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Row(
               children: [
@@ -745,9 +852,15 @@ class _IpaRecordCard extends StatelessWidget {
 }
 
 class _AppInfoBlock extends StatelessWidget {
-  const _AppInfoBlock({required this.appInfo});
+  const _AppInfoBlock({
+    required this.appInfo,
+    required this.onRevealInfoPlist,
+    required this.onRevealEmbeddedProfile,
+  });
 
   final IpaAppInfo? appInfo;
+  final VoidCallback onRevealInfoPlist;
+  final VoidCallback onRevealEmbeddedProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -777,6 +890,27 @@ class _AppInfoBlock extends StatelessWidget {
                   ? const _AppInfoEmptyState()
                   : ListView(
                       children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: info.infoPlistPath.isEmpty
+                                  ? null
+                                  : onRevealInfoPlist,
+                              icon: const Icon(Icons.account_tree_rounded),
+                              label: const Text('定位 Info.plist'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: info.embeddedProfilePath.isEmpty
+                                  ? null
+                                  : onRevealEmbeddedProfile,
+                              icon: const Icon(Icons.verified_user_rounded),
+                              label: const Text('定位 Profile'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                         _AppInfoRow(
                           label: '名称',
                           value: info.valueOrPlaceholder(info.appName),
@@ -801,6 +935,17 @@ class _AppInfoBlock extends StatelessWidget {
                           label: '可执行文件',
                           value: info.valueOrPlaceholder(info.executableName),
                         ),
+                        _AppInfoRow(
+                          label: 'Info.plist',
+                          value: info.valueOrPlaceholder(info.infoPlistPath),
+                        ),
+                        _AppInfoRow(
+                          label: 'embedded.mobileprovision',
+                          value: info.valueOrPlaceholder(
+                            info.embeddedProfilePath,
+                          ),
+                        ),
+                        _EmbeddedProfileInfoRows(info: info),
                       ],
                     ),
             ),
@@ -825,6 +970,51 @@ class _AppInfoEmptyState extends StatelessWidget {
           height: 1.6,
         ),
       ),
+    );
+  }
+}
+
+class _EmbeddedProfileInfoRows extends StatelessWidget {
+  const _EmbeddedProfileInfoRows({required this.info});
+
+  final IpaAppInfo info;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = info.embeddedProfileInfo;
+
+    if (profile == null) {
+      if (info.embeddedProfileError.isEmpty) {
+        return const _AppInfoRow(label: 'Profile 状态', value: '未读取到');
+      }
+
+      return _AppInfoRow(label: 'Profile 状态', value: info.embeddedProfileError);
+    }
+
+    final teamIds = profile.teamIdentifiers.isEmpty
+        ? '未读取到'
+        : profile.teamIdentifiers.join(', ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _AppInfoRow(label: 'Profile 名称', value: profile.name),
+        _AppInfoRow(label: 'Profile 类型', value: profile.profileKindLabel),
+        _AppInfoRow(label: 'Profile Team ID', value: teamIds),
+        _AppInfoRow(
+          label: 'Profile Bundle ID',
+          value: profile.bundleIdentifier ?? '未读取到',
+        ),
+        _AppInfoRow(
+          label: 'Bundle ID 匹配',
+          value: info.isBundleIdentifierMatched ? '匹配' : '未匹配',
+        ),
+        _AppInfoRow(
+          label: '设备数量',
+          value: '${profile.provisionedDevices.length}',
+        ),
+        _AppInfoRow(label: '证书数量', value: '${profile.certificates.length}'),
+      ],
     );
   }
 }

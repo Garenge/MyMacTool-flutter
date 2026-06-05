@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'mobileprovision_profile_info.dart';
+
 class IpaAppInfo {
   const IpaAppInfo({
     required this.appName,
@@ -8,6 +10,10 @@ class IpaAppInfo {
     required this.buildNumber,
     required this.minimumOsVersion,
     required this.executableName,
+    required this.infoPlistPath,
+    required this.embeddedProfilePath,
+    required this.embeddedProfileInfo,
+    required this.embeddedProfileError,
   });
 
   final String appName;
@@ -16,6 +22,10 @@ class IpaAppInfo {
   final String buildNumber;
   final String minimumOsVersion;
   final String executableName;
+  final String infoPlistPath;
+  final String embeddedProfilePath;
+  final MobileProvisionProfileInfo? embeddedProfileInfo;
+  final String embeddedProfileError;
 
   bool get hasAnyValue {
     return <String>[
@@ -25,7 +35,25 @@ class IpaAppInfo {
       buildNumber,
       minimumOsVersion,
       executableName,
+      infoPlistPath,
+      embeddedProfilePath,
     ].any((String value) => value.isNotEmpty);
+  }
+
+  bool get hasEmbeddedProfile => embeddedProfilePath.isNotEmpty;
+
+  bool get hasEmbeddedProfileInfo => embeddedProfileInfo != null;
+
+  bool get isBundleIdentifierMatched {
+    final profileBundleIdentifier = embeddedProfileInfo?.bundleIdentifier;
+
+    if (bundleIdentifier.isEmpty ||
+        profileBundleIdentifier == null ||
+        profileBundleIdentifier.isEmpty) {
+      return false;
+    }
+
+    return profileBundleIdentifier == bundleIdentifier;
   }
 
   String valueOrPlaceholder(String value) {
@@ -36,15 +64,28 @@ class IpaAppInfo {
 class IpaAppInfoParser {
   const IpaAppInfoParser();
 
-  Future<IpaAppInfo?> parseFromExtractedDirectory(Directory directory) async {
-    final infoPlist = _findInfoPlist(directory);
+  static const MobileProvisionProfileParser _profileParser =
+      MobileProvisionProfileParser();
 
-    if (infoPlist == null) {
+  Future<IpaAppInfo?> parseFromExtractedDirectory(Directory directory) async {
+    final appDirectory = _findAppDirectory(directory);
+
+    if (appDirectory == null) {
+      return null;
+    }
+
+    final infoPlist = File('${appDirectory.path}/Info.plist');
+
+    if (!infoPlist.existsSync()) {
       return null;
     }
 
     final displayName = await _readPlistValue(infoPlist, 'CFBundleDisplayName');
     final bundleName = await _readPlistValue(infoPlist, 'CFBundleName');
+    final embeddedProfile = File(
+      '${appDirectory.path}/embedded.mobileprovision',
+    );
+    final embeddedProfileResult = await _parseEmbeddedProfile(embeddedProfile);
 
     return IpaAppInfo(
       appName: displayName.isNotEmpty ? displayName : bundleName,
@@ -56,10 +97,16 @@ class IpaAppInfoParser {
       buildNumber: await _readPlistValue(infoPlist, 'CFBundleVersion'),
       minimumOsVersion: await _readPlistValue(infoPlist, 'MinimumOSVersion'),
       executableName: await _readPlistValue(infoPlist, 'CFBundleExecutable'),
+      infoPlistPath: infoPlist.path,
+      embeddedProfilePath: embeddedProfile.existsSync()
+          ? embeddedProfile.path
+          : '',
+      embeddedProfileInfo: embeddedProfileResult.info,
+      embeddedProfileError: embeddedProfileResult.errorText,
     );
   }
 
-  File? _findInfoPlist(Directory directory) {
+  Directory? _findAppDirectory(Directory directory) {
     final payloadDirectory = Directory('${directory.path}/Payload');
 
     if (!payloadDirectory.existsSync()) {
@@ -76,11 +123,31 @@ class IpaAppInfoParser {
       final infoPlist = File('${appDirectory.path}/Info.plist');
 
       if (infoPlist.existsSync()) {
-        return infoPlist;
+        return appDirectory;
       }
     }
 
     return null;
+  }
+
+  Future<_EmbeddedProfileParseResult> _parseEmbeddedProfile(File file) async {
+    if (!file.existsSync()) {
+      return const _EmbeddedProfileParseResult(info: null, errorText: '');
+    }
+
+    try {
+      return _EmbeddedProfileParseResult(
+        info: await _profileParser.parse(file.path),
+        errorText: '',
+      );
+    } on FormatException catch (error) {
+      return _EmbeddedProfileParseResult(info: null, errorText: error.message);
+    } catch (error) {
+      return const _EmbeddedProfileParseResult(
+        info: null,
+        errorText: 'embedded.mobileprovision 解析失败。',
+      );
+    }
   }
 
   Future<String> _readPlistValue(File plistFile, String key) async {
@@ -103,4 +170,14 @@ class IpaAppInfoParser {
 
     return '${result.stdout}'.trim();
   }
+}
+
+class _EmbeddedProfileParseResult {
+  const _EmbeddedProfileParseResult({
+    required this.info,
+    required this.errorText,
+  });
+
+  final MobileProvisionProfileInfo? info;
+  final String errorText;
 }

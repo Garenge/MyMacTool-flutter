@@ -62,6 +62,8 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持选择或拖拽 `.ipa` 文件
   - 自动解压到临时目录并打开输出目录
   - 支持读取 Info.plist 中的 App 名称、Bundle ID、版本号等信息
+  - 支持定位解包后的 Info.plist 和 embedded.mobileprovision
+  - 支持读取 embedded.mobileprovision，展示 Profile 类型、Team ID、Bundle ID 匹配状态、设备和证书数量
   - 支持解析记录、复制输出路径、重新打开目录
 
 ## 技术栈
@@ -116,10 +118,9 @@ lib/
 ### P0：移动端排查能力
 
 1. IPA 与 Profile / Plist 联动
-   - 从 IPA 解包结果中读取 `embedded.mobileprovision`
-   - 将 IPA 的 Bundle ID、Team ID 与 Profile 解析结果做一致性提示
-   - 支持从 IPA 解析页面一键打开解包出的 `Info.plist`
-   - 显示签名、证书、权限、支持设备等排查信息
+   - 支持从 IPA 解析页面直接打开 Info.plist 的 Plist 查看器视图
+   - 支持从 IPA 解析页面直接打开 embedded.mobileprovision 的 Profile 解析视图
+   - 展示更完整的签名证书主体、有效期和权限差异提示
 
 ### P1：开发日常高频工具
 
