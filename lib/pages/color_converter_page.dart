@@ -98,7 +98,7 @@ class _ColorConverterPageState extends State<ColorConverterPage> {
     }
 
     throw const FormatException(
-      '无法识别颜色格式，请使用 #RRGGBB、#AARRGGBB、rgb(...)、rgba(...) 或 Color(0x...)。',
+      '无法识别颜色格式，请使用 #RRGGBB、#RRGGBBAA、rgb(...)、rgba(...) 或 Color(0xAARRGGBB)。',
     );
   }
 
@@ -118,13 +118,36 @@ class _ColorConverterPageState extends State<ColorConverterPage> {
     }
 
     if (hexText.length == 8) {
-      return _parseArgbHex(hexText);
+      if (hexText.startsWith(RegExp('ff|00', caseSensitive: false))) {
+        return _parseArgbHex(hexText);
+      }
+
+      return _parseRgbaHex(hexText);
     }
 
-    throw const FormatException('HEX 颜色长度需要是 6 位 RGB 或 8 位 ARGB。');
+    throw const FormatException('HEX 颜色长度需要是 6 位 RGB 或 8 位 RGBA。');
+  }
+
+  _ColorValue _parseRgbaHex(String hexText) {
+    final rgba = int.parse(hexText, radix: 16);
+
+    return _ColorValue(
+      alpha: rgba & 0xFF,
+      red: (rgba >> 24) & 0xFF,
+      green: (rgba >> 16) & 0xFF,
+      blue: (rgba >> 8) & 0xFF,
+    );
   }
 
   _ColorValue _parseArgbHex(String hexText) {
+    if (!_isHexText(hexText)) {
+      throw const FormatException('HEX 颜色只能包含 0-9、A-F。');
+    }
+
+    if (hexText.length != 8) {
+      throw const FormatException('ARGB HEX 颜色长度需要是 8 位。');
+    }
+
     final argb = int.parse(hexText, radix: 16);
 
     return _ColorValue(
@@ -272,6 +295,7 @@ class _ColorResult {
     required this.value,
     required this.hex,
     required this.argbHex,
+    required this.rgbaHex,
     required this.rgb,
     required this.rgba,
     required this.flutterColor,
@@ -291,6 +315,7 @@ class _ColorResult {
       value: value,
       hex: '#$red$green$blue',
       argbHex: '#$alpha$red$green$blue',
+      rgbaHex: '#$red$green$blue$alpha',
       rgb: 'rgb(${value.red}, ${value.green}, ${value.blue})',
       rgba:
           'rgba(${value.red}, ${value.green}, ${value.blue}, ${_formatAlpha(value.alpha)})',
@@ -302,6 +327,7 @@ class _ColorResult {
   final _ColorValue value;
   final String hex;
   final String argbHex;
+  final String rgbaHex;
   final String rgb;
   final String rgba;
   final String flutterColor;
@@ -312,6 +338,7 @@ class _ColorResult {
       value: value,
       hex: hex,
       argbHex: argbHex,
+      rgbaHex: rgbaHex,
       rgb: rgb,
       rgba: rgba,
       flutterColor: flutterColor,
@@ -452,6 +479,11 @@ class _ColorResultView extends StatelessWidget {
                 label: 'ARGB HEX',
                 value: result.argbHex,
                 onCopy: () => onCopyValue(result.argbHex, '已复制 ARGB HEX。'),
+              ),
+              _ColorResultTile(
+                label: 'RGBA HEX',
+                value: result.rgbaHex,
+                onCopy: () => onCopyValue(result.rgbaHex, '已复制 RGBA HEX。'),
               ),
               _ColorResultTile(
                 label: 'RGB',

@@ -29,7 +29,9 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持当前时间快捷填充
   - 支持单项结果复制
 - 颜色转换
-  - 支持 HEX、ARGB HEX、RGB、RGBA、Flutter `Color(0x...)` 互转
+  - 支持 HEX、ARGB HEX、RGBA HEX、RGB、RGBA、Flutter `Color(0x...)` 互转
+  - 支持从 `rgba(...)` 或 CSS `#RRGGBBAA` 反推 RGB HEX、ARGB HEX 和 RGBA HEX
+  - 支持用 Flutter `Color(0xAARRGGBB)` 明确输入 ARGB 颜色
   - 支持颜色预览、通道值展示、单项结果复制
 - Hash 计算
   - 支持对文本计算 MD5、SHA-1、SHA-256、SHA-512 摘要

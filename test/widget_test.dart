@@ -270,6 +270,7 @@ void main() {
 
     expect(find.text('#0F766E', findRichText: true), findsWidgets);
     expect(find.text('#FF0F766E', findRichText: true), findsOneWidget);
+    expect(find.text('#0F766EFF', findRichText: true), findsOneWidget);
     expect(find.text('rgb(15, 118, 110)', findRichText: true), findsOneWidget);
     expect(
       find.text('rgba(15, 118, 110, 1)', findRichText: true),
@@ -277,6 +278,78 @@ void main() {
     );
     expect(find.text('Color(0xFF0F766E)', findRichText: true), findsOneWidget);
     expect(find.text('转换完成。'), findsOneWidget);
+  });
+
+  testWidgets('color converter converts rgba color to hex formats', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '颜色转换');
+
+    await tester.enterText(
+      find.byType(TextField).first,
+      'rgba(15, 118, 110, 0.5)',
+    );
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('#0F766E', findRichText: true), findsWidgets);
+    expect(find.text('#800F766E', findRichText: true), findsOneWidget);
+    expect(find.text('#0F766E80', findRichText: true), findsWidgets);
+    expect(
+      find.text('rgba(15, 118, 110, 0.502)', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('Color(0x800F766E)', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('color converter accepts css rgba hex input', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '颜色转换');
+
+    await tester.enterText(find.byType(TextField).first, '#0F766E80');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('#0F766E', findRichText: true), findsWidgets);
+    expect(find.text('#800F766E', findRichText: true), findsOneWidget);
+    expect(find.text('#0F766E80', findRichText: true), findsWidgets);
+    expect(
+      find.text('rgba(15, 118, 110, 0.502)', findRichText: true),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('color converter keeps flutter argb color input semantics', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '颜色转换');
+
+    await tester.enterText(find.byType(TextField).first, 'Color(0x800F766E)');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('#0F766E', findRichText: true), findsWidgets);
+    expect(find.text('#800F766E', findRichText: true), findsOneWidget);
+    expect(find.text('#0F766E80', findRichText: true), findsOneWidget);
   });
 
   testWidgets('color converter reports invalid color input', (
