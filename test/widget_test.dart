@@ -12,6 +12,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:mytools/app.dart';
+import 'package:mytools/pages/color_palette_picker.dart';
+import 'package:mytools/pages/ipa_app_info.dart';
+import 'package:mytools/pages/mobileprovision_profile_info.dart';
+import 'package:mytools/pages/mobileprovision_profile_page.dart';
+import 'package:mytools/pages/plist_document_info.dart';
+import 'package:mytools/pages/plist_document_page.dart';
+import 'package:mytools/pages/tool_shell_page.dart';
+import 'package:mytools/pages/x509_certificate_info.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +60,117 @@ void main() {
     }
 
     expect(textFinder, findsOneWidget);
+  }
+
+  Future<void> pumpIpaShell(
+    WidgetTester tester, {
+    required IpaAppInfo appInfo,
+  }) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ToolShellPage(
+          initialTool: ToolItem.ipaUnpack,
+          initialIpaAppInfo: appInfo,
+        ),
+      ),
+    );
+    await tester.pump();
+  }
+
+  IpaAppInfo buildIpaAppInfo({
+    required String infoPlistPath,
+    MobileProvisionProfileInfo? profileInfo,
+  }) {
+    return IpaAppInfo(
+      appName: 'MyTools',
+      bundleIdentifier: 'com.example.mytools',
+      shortVersion: '1.0.0',
+      buildNumber: '42',
+      minimumOsVersion: '15.0',
+      executableName: 'MyTools',
+      infoPlistPath: infoPlistPath,
+      embeddedProfilePath: profileInfo?.filePath ?? '',
+      embeddedProfileInfo: profileInfo,
+      embeddedProfileError: '',
+    );
+  }
+
+  MobileProvisionProfileInfo buildProfileInfo(String path) {
+    return MobileProvisionProfileInfo(
+      filePath: path,
+      name: 'MyTools Dev Profile',
+      uuid: '11111111-2222-3333-4444-555555555555',
+      appIdName: 'MyTools',
+      teamName: 'Example Team',
+      teamIdentifiers: const <String>['ABCDE12345'],
+      appIdentifierPrefixes: const <String>['ABCDE12345'],
+      applicationIdentifier: 'ABCDE12345.com.example.mytools',
+      bundleIdentifier: 'com.example.mytools',
+      creationDate: DateTime.utc(2026),
+      expirationDate: DateTime.utc(2027),
+      timeToLive: 365,
+      platforms: const <String>['iOS'],
+      provisionedDevices: const <String>['00008030-001122334455802E'],
+      certificates: const <MobileProvisionCertificateInfo>[],
+      entitlements: const <String, Object?>{
+        'application-identifier': 'ABCDE12345.com.example.mytools',
+        'get-task-allow': true,
+      },
+      provisionsAllDevices: false,
+      betaReportsActive: false,
+    );
+  }
+
+  MobileProvisionProfileInfo buildProfileInfoWithCertificate(String path) {
+    return MobileProvisionProfileInfo(
+      filePath: path,
+      name: 'MyTools Dev Profile',
+      uuid: '11111111-2222-3333-4444-555555555555',
+      appIdName: 'MyTools',
+      teamName: 'Example Team',
+      teamIdentifiers: const <String>['ABCDE12345'],
+      appIdentifierPrefixes: const <String>['ABCDE12345'],
+      applicationIdentifier: 'ABCDE12345.com.example.mytools',
+      bundleIdentifier: 'com.example.mytools',
+      creationDate: DateTime.utc(2026),
+      expirationDate: DateTime.utc(2027),
+      timeToLive: 365,
+      platforms: const <String>['iOS'],
+      provisionedDevices: const <String>[],
+      certificates: const <MobileProvisionCertificateInfo>[
+        MobileProvisionCertificateInfo(
+          index: 1,
+          byteLength: 910,
+          sha1: 'AA:BB',
+          sha256: 'CC:DD',
+          x509: X509CertificateInfo(
+            subject: 'CN=Apple Development: MyTools, O=Example Team',
+            issuer: 'CN=Example CA',
+            serialNumber: '01:02',
+            notBefore: null,
+            notAfter: null,
+          ),
+        ),
+      ],
+      entitlements: const <String, Object?>{
+        'application-identifier': 'ABCDE12345.com.example.mytools',
+        'get-task-allow': false,
+      },
+      provisionsAllDevices: false,
+      betaReportsActive: false,
+    );
+  }
+
+  PlistDocumentInfo buildPlistInfo(String path) {
+    return const PlistDocumentParser().parseXml('''
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.example.mytools</string>
+</dict>
+</plist>
+''', filePath: path);
   }
 
   setUp(() {
@@ -113,6 +232,33 @@ void main() {
     expect(material.color, const Color(0xFFEAF7F6));
   });
 
+  testWidgets('tool shell logs file and class when selecting sidebar item', (
+    WidgetTester tester,
+  ) async {
+    final messages = <String>[];
+    final oldDebugPrint = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      if (message != null) {
+        messages.add(message);
+      }
+    };
+
+    try {
+      await tester.pumpWidget(const MyToolsApp());
+      await selectTool(tester, '颜色转换');
+    } finally {
+      debugPrint = oldDebugPrint;
+    }
+
+    expect(
+      messages.join('\n'),
+      contains(
+        'opened 颜色转换 -> '
+        'lib/pages/color_converter_page.dart#ColorConverterPage',
+      ),
+    );
+  });
+
   testWidgets('svg preview page supports drag-and-drop import', (
     WidgetTester tester,
   ) async {
@@ -149,6 +295,40 @@ void main() {
 
     expect(find.text('图片有效区域'), findsOneWidget);
   });
+
+  testWidgets(
+    'svg preview page copies content summary and reports missing path',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const MyToolsApp());
+
+      await tester.enterText(
+        find.byType(TextField),
+        '<svg viewBox="0 0 24 24"><rect width="24" height="24" fill="#0F766E"/></svg>',
+      );
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('复制内容'), findsOneWidget);
+      expect(find.text('复制摘要'), findsOneWidget);
+      expect(find.text('复制路径'), findsOneWidget);
+
+      await tester.tap(find.text('复制内容'));
+      await tester.pump();
+      expect(find.text('已复制 SVG 内容。'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('复制摘要'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('复制摘要'));
+      await tester.pump();
+      expect(find.text('已复制 SVG 摘要。'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('复制路径'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('复制路径'));
+      await tester.pump();
+      expect(find.text('当前 SVG 没有关联文件路径。'), findsOneWidget);
+    },
+  );
 
   testWidgets('svg preview page caps zoom at 500 percent', (
     WidgetTester tester,
@@ -274,6 +454,114 @@ void main() {
     expect(find.text('解析 IPA 后会显示 App 名称、Bundle ID、版本号等信息。'), findsOneWidget);
   });
 
+  testWidgets('ipa unpack page shows linked file actions', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final profileInfo = buildProfileInfo(
+      '/tmp/Payload/MyTools.app/embedded.mobileprovision',
+    );
+
+    await pumpIpaShell(
+      tester,
+      appInfo: buildIpaAppInfo(
+        infoPlistPath: '/tmp/Payload/MyTools.app/Info.plist',
+        profileInfo: profileInfo,
+      ),
+    );
+
+    expect(find.text('定位 Info.plist'), findsOneWidget);
+    expect(find.text('查看 Info.plist'), findsOneWidget);
+    expect(find.text('定位 Profile'), findsOneWidget);
+    expect(find.text('解析 Profile'), findsOneWidget);
+  });
+
+  testWidgets('plist document page loads initial xml plist path', (
+    WidgetTester tester,
+  ) async {
+    const path = '/tmp/Payload/MyTools.app/Info.plist';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PlistDocumentPage(
+            initialPath: path,
+            parser: _FakePlistParser(buildPlistInfo(path)),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Plist查看器'), findsOneWidget);
+    expect(find.text('读取完成，共 2 个节点。'), findsOneWidget);
+    expect(find.text('CFBundleIdentifier'), findsOneWidget);
+    expect(find.text('com.example.mytools'), findsOneWidget);
+  });
+
+  testWidgets('profile page renders initial embedded profile info', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final profileInfo = buildProfileInfo(
+      '/tmp/Payload/MyTools.app/embedded.mobileprovision',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MobileProvisionProfilePage(initialInfo: profileInfo),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Provisioning Profile解析'), findsOneWidget);
+    expect(find.text('已从 IPA 载入 Profile。'), findsOneWidget);
+    expect(find.text('MyTools Dev Profile'), findsWidgets);
+    expect(find.text('com.example.mytools'), findsWidgets);
+  });
+
+  testWidgets(
+    'profile page renders diagnostics and x509 certificate metadata',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1600, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final profileInfo = buildProfileInfoWithCertificate(
+        '/tmp/Payload/MyTools.app/embedded.mobileprovision',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MobileProvisionProfilePage(initialInfo: profileInfo),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('签名诊断'), findsOneWidget);
+      expect(find.text('未发现明显签名风险'), findsOneWidget);
+      expect(find.text('Subject'), findsOneWidget);
+      expect(
+        find.text('CN=Apple Development: MyTools, O=Example Team'),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('color converter converts hex color to common formats', (
     WidgetTester tester,
   ) async {
@@ -301,7 +589,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('hsl(175, 77%, 26%)', findRichText: true), findsOneWidget);
-    expect(find.text('hsv(175, 87%, 46%)', findRichText: true), findsOneWidget);
+    expect(find.text('hsv(175, 87%, 46%)', findRichText: true), findsWidgets);
     expect(
       find.text('cmyk(87%, 0%, 7%, 54%)', findRichText: true),
       findsOneWidget,
@@ -389,7 +677,7 @@ void main() {
 
     expect(find.text('#0F766E', findRichText: true), findsWidgets);
     expect(find.text('#800F766E', findRichText: true), findsOneWidget);
-    expect(find.text('#0F766E80', findRichText: true), findsOneWidget);
+    expect(find.text('#0F766E80', findRichText: true), findsWidgets);
   });
 
   testWidgets('color converter reports invalid color input', (
@@ -403,6 +691,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('HEX 颜色只能包含 0-9、A-F。'), findsOneWidget);
+  });
+
+  testWidgets('color converter shows palette by default and selects color', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '颜色转换');
+
+    expect(find.text('颜色盘'), findsWidgets);
+    expect(find.text('拾取颜色'), findsNothing);
+
+    await tester.tapAt(
+      tester.getCenter(
+        find.byKey(const ValueKey('color-palette-saturation-value-area')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final textField = tester.widget<TextField>(find.byType(TextField).first);
+    expect(textField.controller?.text, startsWith('#'));
+    expect(find.text('已从颜色盘选取。'), findsOneWidget);
+    expect(find.text('HEX'), findsOneWidget);
+  });
+
+  testWidgets('color converter syncs palette to converted input color', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '颜色转换');
+
+    await tester.enterText(find.byType(TextField).first, '#336699');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(ColorPalettePicker),
+        matching: find.byKey(const ValueKey('color-palette-selected-text')),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('#336699', findRichText: true), findsWidgets);
   });
 
   testWidgets('hash calculator calculates common digest formats', (
@@ -486,6 +826,24 @@ void main() {
     expect(find.text('选择音频或视频文件后会显示容器、编码、时长、码率和流信息。'), findsOneWidget);
   });
 
+  testWidgets('lottie preview page shows copy actions and empty state', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, 'Lottie预览');
+
+    expect(find.text('Lottie 预览'), findsOneWidget);
+    expect(find.text('文件列表'), findsOneWidget);
+    expect(find.text('复制摘要'), findsOneWidget);
+    expect(find.text('复制路径'), findsOneWidget);
+    expect(find.text('从右侧拖入多个 Lottie JSON 文件，或点击“打开文件夹”批量加载。'), findsOneWidget);
+  });
+
   testWidgets('jwt decoder decodes header payload and time claims', (
     WidgetTester tester,
   ) async {
@@ -558,6 +916,10 @@ void main() {
     expect(find.text('圆形'), findsOneWidget);
     expect(find.text('圆点'), findsOneWidget);
     expect(find.text('导出尺寸'), findsOneWidget);
+    expect(find.text('Logo'), findsOneWidget);
+    expect(find.text('选择Logo'), findsOneWidget);
+    expect(find.text('移除Logo'), findsOneWidget);
+    expect(find.text('可选嵌入 Logo，建议使用纠错 H 并控制在 24% 以内。'), findsOneWidget);
     expect(find.text('前景色'), findsOneWidget);
     expect(find.text('背景色'), findsOneWidget);
     expect(find.text('支持粘贴、拖拽或选择二维码图片。'), findsNothing);
@@ -607,6 +969,8 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '二维码工具');
 
+    await tester.ensureVisible(find.text('复制内容'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('复制内容'));
     await tester.pumpAndSettle();
 
@@ -727,4 +1091,13 @@ void main() {
     expect(find.text('b'), findsOneWidget);
     expect(find.text('x'), findsOneWidget);
   });
+}
+
+class _FakePlistParser implements PlistDocumentParsing {
+  const _FakePlistParser(this.info);
+
+  final PlistDocumentInfo info;
+
+  @override
+  Future<PlistDocumentInfo> parse(String path) async => info;
 }

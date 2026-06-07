@@ -11,6 +11,7 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
 - SVG 预览
   - 支持手动输入、打开文件、拖拽导入、剪贴板粘贴
   - 支持即时渲染、缩放预览、另存为 SVG、浏览器打开
+  - 支持复制 SVG 内容、来源路径和摘要
   - 支持最近记录恢复
 - 进制换算
   - 支持十六进制、十进制无符号、十进制有符号、二进制互转
@@ -50,13 +51,14 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持 exp、iat、nbf 本地时间转换和过期状态提示
 - 二维码工具
   - 支持输入字符串生成二维码，可选择生成前 URL 编码
-  - 支持配置纠错等级、导出尺寸、前景色、背景色、定位点形状和码点形状
+  - 支持配置纠错等级、导出尺寸、前景色、背景色、定位点形状、码点形状和 Logo 嵌入
   - 支持粘贴、选择或拖拽图片解析二维码内容
   - 支持复制解析结果、复制 URL 编码结果，并在解析内容为 URL 时直接打开
 - Provisioning Profile 解析
   - 支持选择或拖拽 `.mobileprovision` / `.provisionprofile` 文件
   - 支持展示 Profile 名称、UUID、Team ID、Bundle ID、平台、创建和过期时间
-  - 支持展示 Entitlements、开发证书摘要、设备 UDID 列表和过期状态
+  - 支持展示 Entitlements、开发证书主体 / 签发者 / 有效期 / 摘要、设备 UDID 列表和过期状态
+  - 支持签名诊断提示，检查 Bundle ID、有效期、Team ID、调试权限和推送环境等关键项
   - 支持复制 Bundle ID 和 Profile 摘要
   - 支持最近解析记录恢复
 - Plist 查看
@@ -79,12 +81,13 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
   - 支持选择多个 JSON 文件或拖拽导入
   - 支持多动画叠加预览、选择、反选、清空
   - 支持拖拽调整图层顺序
+  - 支持复制选中文件路径和摘要
 - IPA 解析
   - 支持选择或拖拽 `.ipa` 文件
   - 自动解压到临时目录并打开输出目录
   - 支持读取 Info.plist 中的 App 名称、Bundle ID、版本号等信息
-  - 支持定位解包后的 Info.plist 和 embedded.mobileprovision
-  - 支持读取 embedded.mobileprovision，展示 Profile 类型、Team ID、Bundle ID 匹配状态、设备和证书数量
+  - 支持定位解包后的 Info.plist 和 embedded.mobileprovision，并可直接打开 Plist / Profile 解析视图
+  - 支持读取 embedded.mobileprovision，展示 Profile 类型、Team ID、Bundle ID 匹配状态、签名诊断、设备和证书数量
   - 支持解析记录、复制输出路径、重新打开目录
 
 ## 技术栈
@@ -142,10 +145,7 @@ lib/
 
 ### P0：移动端排查能力
 
-1. IPA 与 Profile / Plist 联动
-   - 支持从 IPA 解析页面直接打开 Info.plist 的 Plist 查看器视图
-   - 支持从 IPA 解析页面直接打开 embedded.mobileprovision 的 Profile 解析视图
-   - 展示更完整的签名证书主体、有效期和权限差异提示
+当前 P0 候选已实现，后续可根据实际排障频率继续补充更深层签名链校验。
 
 ### P1：开发日常高频工具
 
@@ -153,9 +153,7 @@ lib/
 
 ### P2：现有工具增强
 
-1. 二维码工具增强
-   - 支持 Logo 嵌入
-2. 解析类工具体验增强
+1. 解析类工具体验增强
    - 继续统一复制摘要、复制路径、清空结果等操作反馈
 
 ### P3：工程维护
