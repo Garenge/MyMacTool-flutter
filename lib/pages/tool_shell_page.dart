@@ -8,6 +8,7 @@ import 'ipa_unpack_page.dart';
 import 'json_formatter_page.dart';
 import 'jwt_decoder_page.dart';
 import 'lottie_preview_page.dart';
+import 'media_info_page.dart';
 import 'mobileprovision_profile_page.dart';
 import 'plist_document_page.dart';
 import 'qr_code_tool_page.dart';
@@ -27,6 +28,7 @@ enum ToolItem {
   colorConverter,
   hashCalculator,
   imageInfo,
+  mediaInfo,
   jwtDecoder,
   qrCodeTool,
   mobileProvisionProfile,
@@ -90,6 +92,11 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.imageInfo,
     title: '图片信息',
     icon: Icons.photo_size_select_large_rounded,
+  ),
+  _ToolDefinition(
+    tool: ToolItem.mediaInfo,
+    title: '音视频信息',
+    icon: Icons.perm_media_rounded,
   ),
   _ToolDefinition(
     tool: ToolItem.jwtDecoder,
@@ -212,6 +219,8 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const HashCalculatorPage();
       case ToolItem.imageInfo:
         return const ImageInfoPage();
+      case ToolItem.mediaInfo:
+        return const MediaInfoPage();
       case ToolItem.jwtDecoder:
         return const JwtDecoderPage();
       case ToolItem.qrCodeTool:
