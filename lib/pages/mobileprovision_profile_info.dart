@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:xml/xml.dart';
 
+import 'x509_certificate_info.dart';
+
 class MobileProvisionProfileInfo {
   const MobileProvisionProfileInfo({
     required this.filePath,
@@ -79,16 +81,27 @@ class MobileProvisionCertificateInfo {
     required this.byteLength,
     required this.sha1,
     required this.sha256,
+    required this.x509,
   });
 
   final int index;
   final int byteLength;
   final String sha1;
   final String sha256;
+  final X509CertificateInfo? x509;
+
+  DateTime? get notBefore => x509?.notBefore;
+
+  DateTime? get notAfter => x509?.notAfter;
+
+  bool get hasX509Info => x509?.hasAnyValue ?? false;
 }
 
 class MobileProvisionProfileParser {
   const MobileProvisionProfileParser();
+
+  static const X509CertificateParser _certificateParser =
+      X509CertificateParser();
 
   Future<MobileProvisionProfileInfo> parse(String path) async {
     if (!_isProvisionPath(path)) {
@@ -275,11 +288,21 @@ class MobileProvisionProfileParser {
           byteLength: bytes.length,
           sha1: _digestHex(crypto.sha1.convert(bytes)),
           sha256: _digestHex(crypto.sha256.convert(bytes)),
+          x509: _parseCertificate(bytes),
         ),
       );
     }
 
     return certificates;
+  }
+
+  X509CertificateInfo? _parseCertificate(Uint8List bytes) {
+    try {
+      final info = _certificateParser.parse(bytes);
+      return info.hasAnyValue ? info : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   String? _inferBundleIdentifier(

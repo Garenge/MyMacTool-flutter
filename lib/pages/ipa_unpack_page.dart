@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'ipa_app_info.dart';
+import 'mobileprovision_profile_diagnostics.dart';
 
 class _IpaUnpackRecord {
   const _IpaUnpackRecord({
@@ -25,7 +26,16 @@ class _IpaUnpackRecord {
 }
 
 class IpaUnpackPage extends StatefulWidget {
-  const IpaUnpackPage({super.key});
+  const IpaUnpackPage({
+    super.key,
+    this.initialAppInfo,
+    this.onOpenInfoPlist,
+    this.onOpenEmbeddedProfile,
+  });
+
+  final IpaAppInfo? initialAppInfo;
+  final ValueChanged<String>? onOpenInfoPlist;
+  final ValueChanged<IpaAppInfo>? onOpenEmbeddedProfile;
 
   @override
   State<IpaUnpackPage> createState() => _IpaUnpackPageState();
@@ -47,6 +57,16 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
   IpaAppInfo? _appInfo;
   final List<_IpaUnpackRecord> _records = <_IpaUnpackRecord>[];
   final IpaAppInfoParser _appInfoParser = const IpaAppInfoParser();
+
+  @override
+  void initState() {
+    super.initState();
+    _appInfo = widget.initialAppInfo;
+
+    if (widget.initialAppInfo != null) {
+      _statusText = '已载入应用信息，可继续查看关联文件。';
+    }
+  }
 
   Future<void> _handlePickFile() async {
     final file = await openFile(
@@ -408,6 +428,26 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
     }
   }
 
+  void _handleOpenInfoPlistInTool() {
+    final infoPlistPath = _appInfo?.infoPlistPath;
+
+    if (infoPlistPath == null || infoPlistPath.isEmpty) {
+      return;
+    }
+
+    widget.onOpenInfoPlist?.call(infoPlistPath);
+  }
+
+  void _handleOpenEmbeddedProfileInTool() {
+    final info = _appInfo;
+
+    if (info == null || info.embeddedProfilePath.isEmpty) {
+      return;
+    }
+
+    widget.onOpenEmbeddedProfile?.call(info);
+  }
+
   String _buildParseStatusText(IpaAppInfo? appInfo) {
     if (appInfo == null) {
       return '解析完成，未读取到 Info.plist，已自动打开输出目录。';
@@ -646,6 +686,15 @@ class _IpaUnpackPageState extends State<IpaUnpackPage> {
                                               _handleRevealInfoPlist,
                                           onRevealEmbeddedProfile:
                                               _handleRevealEmbeddedProfile,
+                                          onOpenInfoPlist:
+                                              widget.onOpenInfoPlist == null
+                                              ? null
+                                              : _handleOpenInfoPlistInTool,
+                                          onOpenEmbeddedProfile:
+                                              widget.onOpenEmbeddedProfile ==
+                                                  null
+                                              ? null
+                                              : _handleOpenEmbeddedProfileInTool,
                                         ),
                                       ),
                                     ],
@@ -856,11 +905,15 @@ class _AppInfoBlock extends StatelessWidget {
     required this.appInfo,
     required this.onRevealInfoPlist,
     required this.onRevealEmbeddedProfile,
+    required this.onOpenInfoPlist,
+    required this.onOpenEmbeddedProfile,
   });
 
   final IpaAppInfo? appInfo;
   final VoidCallback onRevealInfoPlist;
   final VoidCallback onRevealEmbeddedProfile;
+  final VoidCallback? onOpenInfoPlist;
+  final VoidCallback? onOpenEmbeddedProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -901,12 +954,30 @@ class _AppInfoBlock extends StatelessWidget {
                               icon: const Icon(Icons.account_tree_rounded),
                               label: const Text('定位 Info.plist'),
                             ),
+                            FilledButton.icon(
+                              onPressed:
+                                  info.infoPlistPath.isEmpty ||
+                                      onOpenInfoPlist == null
+                                  ? null
+                                  : onOpenInfoPlist,
+                              icon: const Icon(Icons.account_tree_rounded),
+                              label: const Text('查看 Info.plist'),
+                            ),
                             OutlinedButton.icon(
                               onPressed: info.embeddedProfilePath.isEmpty
                                   ? null
                                   : onRevealEmbeddedProfile,
                               icon: const Icon(Icons.verified_user_rounded),
                               label: const Text('定位 Profile'),
+                            ),
+                            FilledButton.icon(
+                              onPressed:
+                                  info.embeddedProfilePath.isEmpty ||
+                                      onOpenEmbeddedProfile == null
+                                  ? null
+                                  : onOpenEmbeddedProfile,
+                              icon: const Icon(Icons.verified_user_rounded),
+                              label: const Text('解析 Profile'),
                             ),
                           ],
                         ),
@@ -994,6 +1065,19 @@ class _EmbeddedProfileInfoRows extends StatelessWidget {
     final teamIds = profile.teamIdentifiers.isEmpty
         ? '未读取到'
         : profile.teamIdentifiers.join(', ');
+    final diagnostics = info.embeddedProfileDiagnostics;
+    final diagnosticRows = diagnostics == null
+        ? const <Widget>[]
+        : <Widget>[
+            _AppInfoRow(label: '签名诊断', value: diagnostics.summaryText),
+            if (diagnostics.notableItems.isNotEmpty)
+              _AppInfoRow(
+                label: '权限提示',
+                value: diagnostics.notableItems
+                    .map(_formatDiagnosticItem)
+                    .join('\n'),
+              ),
+          ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1007,15 +1091,20 @@ class _EmbeddedProfileInfoRows extends StatelessWidget {
         ),
         _AppInfoRow(
           label: 'Bundle ID 匹配',
-          value: info.isBundleIdentifierMatched ? '匹配' : '未匹配',
+          value: info.bundleIdentifierMatch.label,
         ),
         _AppInfoRow(
           label: '设备数量',
           value: '${profile.provisionedDevices.length}',
         ),
         _AppInfoRow(label: '证书数量', value: '${profile.certificates.length}'),
+        ...diagnosticRows,
       ],
     );
+  }
+
+  String _formatDiagnosticItem(ProfileDiagnosticItem item) {
+    return '[${item.severity.label}] ${item.title}: ${item.message}';
   }
 }
 

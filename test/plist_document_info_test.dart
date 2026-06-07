@@ -1,7 +1,38 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mytools/pages/plist_document_info.dart';
 
 void main() {
+  test('plist parser reads xml plist files directly', () async {
+    final tempDir = await Directory.systemTemp.createTemp(
+      'mytools_plist_direct_',
+    );
+    addTearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    final file = File('${tempDir.path}/Info.plist');
+    await file.writeAsString('''
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.example.mytools</string>
+</dict>
+</plist>
+''');
+
+    final info = await const PlistDocumentParser().parse(file.path);
+
+    expect(info.filePath, file.path);
+    expect(info.itemCount, 2);
+    expect(info.root.children.single.valueText, 'com.example.mytools');
+  });
+
   test('plist parser reads nested xml plist nodes', () {
     const plist = '''
 <?xml version="1.0" encoding="UTF-8"?>

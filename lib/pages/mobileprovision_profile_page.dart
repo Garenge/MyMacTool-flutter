@@ -3,10 +3,18 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'mobileprovision_profile_diagnostics.dart';
 import 'mobileprovision_profile_info.dart';
 
 class MobileProvisionProfilePage extends StatefulWidget {
-  const MobileProvisionProfilePage({super.key});
+  const MobileProvisionProfilePage({
+    super.key,
+    this.initialPath,
+    this.initialInfo,
+  });
+
+  final String? initialPath;
+  final MobileProvisionProfileInfo? initialInfo;
 
   @override
   State<MobileProvisionProfilePage> createState() =>
@@ -30,6 +38,53 @@ class _MobileProvisionProfilePageState
   String? _errorText;
   final List<MobileProvisionProfileInfo> _records =
       <MobileProvisionProfileInfo>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _applyInitialInfo(widget.initialInfo);
+    _scheduleInitialLoad(widget.initialPath);
+  }
+
+  @override
+  void didUpdateWidget(covariant MobileProvisionProfilePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.initialInfo != oldWidget.initialInfo) {
+      _applyInitialInfo(widget.initialInfo);
+    }
+
+    if (widget.initialPath != oldWidget.initialPath) {
+      _scheduleInitialLoad(widget.initialPath);
+    }
+  }
+
+  void _applyInitialInfo(MobileProvisionProfileInfo? info) {
+    if (info == null) {
+      return;
+    }
+
+    _info = info;
+    _prependRecord(info);
+    _statusText = info.isExpired
+        ? '已从 IPA 载入，Profile 已过期。'
+        : '已从 IPA 载入 Profile。';
+    _errorText = null;
+  }
+
+  void _scheduleInitialLoad(String? path) {
+    if (path == null || path.isEmpty) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+
+      await _loadProfile(path);
+    });
+  }
 
   Future<void> _handlePickFile() async {
     final file = await openFile(
@@ -211,11 +266,49 @@ class _MobileProvisionProfilePageState
       'Devices: ${info.provisionedDevices.length}',
       'Certificates: ${info.certificates.length}',
       '',
+      'Signature Diagnostics:',
+      ..._diagnosticLines(info),
+      '',
       'Entitlements:',
       ..._entitlementLines(info.entitlements),
+      '',
+      'Certificates:',
+      ..._certificateLines(info),
     ];
 
     return lines.join('\n');
+  }
+
+  List<String> _certificateLines(MobileProvisionProfileInfo info) {
+    if (info.certificates.isEmpty) {
+      return const <String>['- 未读取到 DeveloperCertificates'];
+    }
+
+    return info.certificates
+        .expand(
+          (MobileProvisionCertificateInfo certificate) => <String>[
+            '- Certificate ${certificate.index}',
+            '  Subject: ${certificate.x509?.subject ?? '-'}',
+            '  Issuer: ${certificate.x509?.issuer ?? '-'}',
+            '  Serial: ${certificate.x509?.serialNumber ?? '-'}',
+            '  Not Before: ${_formatDateTime(certificate.notBefore)}',
+            '  Not After: ${_formatDateTime(certificate.notAfter)}',
+            '  SHA-1: ${certificate.sha1}',
+            '  SHA-256: ${certificate.sha256}',
+          ],
+        )
+        .toList();
+  }
+
+  List<String> _diagnosticLines(MobileProvisionProfileInfo info) {
+    final diagnostics = MobileProvisionProfileDiagnostics.evaluate(info);
+
+    return diagnostics.items
+        .map(
+          (ProfileDiagnosticItem item) =>
+              '- [${item.severity.label}] ${item.title}: ${item.message}',
+        )
+        .toList();
   }
 
   List<String> _entitlementLines(Map<String, Object?> entitlements) {
@@ -441,35 +534,66 @@ class _MobileProvisionDropPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 20),
-                if (selectedPath != null)
-                  _StatusBanner(
-                    message: selectedPath!,
-                    icon: Icons.description_rounded,
-                    isError: false,
+                Flexible(
+                  child: _DropPanelStatusList(
+                    selectedPath: selectedPath,
+                    statusText: statusText,
+                    errorText: errorText,
                   ),
-                if (statusText != null) ...[
-                  if (selectedPath != null) const SizedBox(height: 10),
-                  _StatusBanner(
-                    message: statusText!,
-                    icon: Icons.check_circle_rounded,
-                    isError: false,
-                  ),
-                ],
-                if (errorText != null) ...[
-                  if (selectedPath != null || statusText != null)
-                    const SizedBox(height: 10),
-                  _StatusBanner(
-                    message: errorText!,
-                    icon: Icons.error_outline_rounded,
-                    isError: true,
-                  ),
-                ],
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _DropPanelStatusList extends StatelessWidget {
+  const _DropPanelStatusList({
+    required this.selectedPath,
+    required this.statusText,
+    required this.errorText,
+  });
+
+  final String? selectedPath;
+  final String? statusText;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[
+      if (selectedPath != null)
+        _StatusBanner(
+          message: selectedPath!,
+          icon: Icons.description_rounded,
+          isError: false,
+        ),
+      if (statusText != null) ...[
+        if (selectedPath != null) const SizedBox(height: 10),
+        _StatusBanner(
+          message: statusText!,
+          icon: Icons.check_circle_rounded,
+          isError: false,
+        ),
+      ],
+      if (errorText != null) ...[
+        if (selectedPath != null || statusText != null)
+          const SizedBox(height: 10),
+        _StatusBanner(
+          message: errorText!,
+          icon: Icons.error_outline_rounded,
+          isError: true,
+        ),
+      ],
+    ];
+
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SingleChildScrollView(child: Column(children: children));
   }
 }
 
@@ -544,12 +668,22 @@ class _MobileProvisionResultPanel extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
+                    _DiagnosticsSection(
+                      profile: info,
+                      diagnostics: MobileProvisionProfileDiagnostics.evaluate(
+                        info,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
                     _EntitlementsSection(
                       entitlements: info.entitlements,
                       formatValue: formatValue,
                     ),
                     const SizedBox(height: 14),
-                    _CertificatesSection(certificates: info.certificates),
+                    _CertificatesSection(
+                      certificates: info.certificates,
+                      formatDateTime: formatDateTime,
+                    ),
                     const SizedBox(height: 14),
                     _DevicesSection(devices: info.provisionedDevices),
                   ],
@@ -771,6 +905,101 @@ class _InfoSection extends StatelessWidget {
   }
 }
 
+class _DiagnosticsSection extends StatelessWidget {
+  const _DiagnosticsSection({required this.profile, required this.diagnostics});
+
+  final MobileProvisionProfileInfo profile;
+  final MobileProvisionProfileDiagnostics diagnostics;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionFrame(
+      title: '签名诊断',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _KeyValueRow(
+            label: 'Profile Bundle ID',
+            value: profile.bundleIdentifier ?? '-',
+          ),
+          _KeyValueRow(label: '诊断摘要', value: diagnostics.summaryText),
+          const SizedBox(height: 4),
+          ...diagnostics.items.map(
+            (ProfileDiagnosticItem item) => _DiagnosticRow(item: item),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagnosticRow extends StatelessWidget {
+  const _DiagnosticRow({required this.item});
+
+  final ProfileDiagnosticItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _severityColor(item.severity);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(_severityIcon(item.severity), color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${item.title} · ${item.severity.label}',
+                  style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                SelectableText(
+                  item.message,
+                  style: const TextStyle(
+                    color: Color(0xFF31414F),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _severityColor(ProfileDiagnosticSeverity severity) {
+    switch (severity) {
+      case ProfileDiagnosticSeverity.ok:
+        return const Color(0xFF0F766E);
+      case ProfileDiagnosticSeverity.info:
+        return const Color(0xFF2563EB);
+      case ProfileDiagnosticSeverity.warning:
+        return const Color(0xFFB45309);
+      case ProfileDiagnosticSeverity.error:
+        return const Color(0xFFB42318);
+    }
+  }
+
+  IconData _severityIcon(ProfileDiagnosticSeverity severity) {
+    switch (severity) {
+      case ProfileDiagnosticSeverity.ok:
+        return Icons.check_circle_rounded;
+      case ProfileDiagnosticSeverity.info:
+        return Icons.info_rounded;
+      case ProfileDiagnosticSeverity.warning:
+        return Icons.warning_amber_rounded;
+      case ProfileDiagnosticSeverity.error:
+        return Icons.error_outline_rounded;
+    }
+  }
+}
+
 class _EntitlementsSection extends StatelessWidget {
   const _EntitlementsSection({
     required this.entitlements,
@@ -803,9 +1032,13 @@ class _EntitlementsSection extends StatelessWidget {
 }
 
 class _CertificatesSection extends StatelessWidget {
-  const _CertificatesSection({required this.certificates});
+  const _CertificatesSection({
+    required this.certificates,
+    required this.formatDateTime,
+  });
 
   final List<MobileProvisionCertificateInfo> certificates;
+  final String Function(DateTime? value) formatDateTime;
 
   @override
   Widget build(BuildContext context) {
@@ -817,7 +1050,10 @@ class _CertificatesSection extends StatelessWidget {
               children: certificates
                   .map(
                     (MobileProvisionCertificateInfo certificate) =>
-                        _CertificateTile(certificate: certificate),
+                        _CertificateTile(
+                          certificate: certificate,
+                          formatDateTime: formatDateTime,
+                        ),
                   )
                   .toList(),
             ),
@@ -934,9 +1170,13 @@ class _KeyValueRow extends StatelessWidget {
 }
 
 class _CertificateTile extends StatelessWidget {
-  const _CertificateTile({required this.certificate});
+  const _CertificateTile({
+    required this.certificate,
+    required this.formatDateTime,
+  });
 
   final MobileProvisionCertificateInfo certificate;
+  final String Function(DateTime? value) formatDateTime;
 
   @override
   Widget build(BuildContext context) {
@@ -960,6 +1200,30 @@ class _CertificateTile extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
+              const SizedBox(height: 8),
+              if (certificate.hasX509Info) ...[
+                _KeyValueRow(
+                  label: 'Subject',
+                  value: certificate.x509?.subject ?? '-',
+                ),
+                _KeyValueRow(
+                  label: 'Issuer',
+                  value: certificate.x509?.issuer ?? '-',
+                ),
+                _KeyValueRow(
+                  label: 'Serial',
+                  value: certificate.x509?.serialNumber ?? '-',
+                ),
+                _KeyValueRow(
+                  label: 'Not Before',
+                  value: formatDateTime(certificate.notBefore),
+                ),
+                _KeyValueRow(
+                  label: 'Not After',
+                  value: formatDateTime(certificate.notAfter),
+                ),
+              ] else
+                const _MutedText('未解析到 X.509 主体和有效期，仅展示摘要。'),
               const SizedBox(height: 8),
               _KeyValueRow(label: 'SHA-1', value: certificate.sha1),
               _KeyValueRow(label: 'SHA-256', value: certificate.sha256),

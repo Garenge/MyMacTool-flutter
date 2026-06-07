@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'mobileprovision_profile_diagnostics.dart';
 import 'mobileprovision_profile_info.dart';
 
 class IpaAppInfo {
@@ -44,16 +45,28 @@ class IpaAppInfo {
 
   bool get hasEmbeddedProfileInfo => embeddedProfileInfo != null;
 
-  bool get isBundleIdentifierMatched {
-    final profileBundleIdentifier = embeddedProfileInfo?.bundleIdentifier;
+  BundleIdentifierMatchResult get bundleIdentifierMatch {
+    return BundleIdentifierMatchResult.evaluate(
+      appBundleIdentifier: bundleIdentifier,
+      profileBundleIdentifier: embeddedProfileInfo?.bundleIdentifier,
+    );
+  }
 
-    if (bundleIdentifier.isEmpty ||
-        profileBundleIdentifier == null ||
-        profileBundleIdentifier.isEmpty) {
-      return false;
+  bool get isBundleIdentifierMatched {
+    return bundleIdentifierMatch.isMatched;
+  }
+
+  MobileProvisionProfileDiagnostics? get embeddedProfileDiagnostics {
+    final profile = embeddedProfileInfo;
+
+    if (profile == null) {
+      return null;
     }
 
-    return profileBundleIdentifier == bundleIdentifier;
+    return MobileProvisionProfileDiagnostics.evaluate(
+      profile,
+      appBundleIdentifier: bundleIdentifier,
+    );
   }
 
   String valueOrPlaceholder(String value) {

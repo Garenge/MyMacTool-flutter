@@ -4,6 +4,7 @@ import 'color_converter_page.dart';
 import 'encoding_converter_page.dart';
 import 'hash_calculator_page.dart';
 import 'image_info_page.dart';
+import 'ipa_app_info.dart';
 import 'ipa_unpack_page.dart';
 import 'json_formatter_page.dart';
 import 'jwt_decoder_page.dart';
@@ -45,11 +46,15 @@ class _ToolDefinition {
     required this.tool,
     required this.title,
     required this.icon,
+    required this.pageFile,
+    required this.pageClass,
   });
 
   final ToolItem tool;
   final String title;
   final IconData icon;
+  final String pageFile;
+  final String pageClass;
 }
 
 const List<_ToolDefinition> _toolDefinitions = [
@@ -57,107 +62,188 @@ const List<_ToolDefinition> _toolDefinitions = [
     tool: ToolItem.svgPreview,
     title: 'SVG预览',
     icon: Icons.image_search_rounded,
+    pageFile: 'lib/pages/svg_preview_page.dart',
+    pageClass: 'SvgPreviewPage',
   ),
   _ToolDefinition(
     tool: ToolItem.radixConverter,
     title: '进制换算',
     icon: Icons.calculate_rounded,
+    pageFile: 'lib/pages/radix_converter_page.dart',
+    pageClass: 'RadixConverterPage',
   ),
   _ToolDefinition(
     tool: ToolItem.encodingConverter,
     title: '编码转换',
     icon: Icons.code_rounded,
+    pageFile: 'lib/pages/encoding_converter_page.dart',
+    pageClass: 'EncodingConverterPage',
   ),
   _ToolDefinition(
     tool: ToolItem.jsonFormatter,
     title: 'JSON格式化',
     icon: Icons.data_object_rounded,
+    pageFile: 'lib/pages/json_formatter_page.dart',
+    pageClass: 'JsonFormatterPage',
   ),
   _ToolDefinition(
     tool: ToolItem.timestampConverter,
     title: '时间戳转换',
     icon: Icons.schedule_rounded,
+    pageFile: 'lib/pages/timestamp_converter_page.dart',
+    pageClass: 'TimestampConverterPage',
   ),
   _ToolDefinition(
     tool: ToolItem.colorConverter,
     title: '颜色转换',
     icon: Icons.palette_rounded,
+    pageFile: 'lib/pages/color_converter_page.dart',
+    pageClass: 'ColorConverterPage',
   ),
   _ToolDefinition(
     tool: ToolItem.hashCalculator,
     title: 'Hash计算',
     icon: Icons.tag_rounded,
+    pageFile: 'lib/pages/hash_calculator_page.dart',
+    pageClass: 'HashCalculatorPage',
   ),
   _ToolDefinition(
     tool: ToolItem.imageInfo,
     title: '图片信息',
     icon: Icons.photo_size_select_large_rounded,
+    pageFile: 'lib/pages/image_info_page.dart',
+    pageClass: 'ImageInfoPage',
   ),
   _ToolDefinition(
     tool: ToolItem.mediaInfo,
     title: '音视频信息',
     icon: Icons.perm_media_rounded,
+    pageFile: 'lib/pages/media_info_page.dart',
+    pageClass: 'MediaInfoPage',
   ),
   _ToolDefinition(
     tool: ToolItem.jwtDecoder,
     title: 'JWT解析',
     icon: Icons.key_rounded,
+    pageFile: 'lib/pages/jwt_decoder_page.dart',
+    pageClass: 'JwtDecoderPage',
   ),
   _ToolDefinition(
     tool: ToolItem.qrCodeTool,
     title: '二维码工具',
     icon: Icons.qr_code_2_rounded,
+    pageFile: 'lib/pages/qr_code_tool_page.dart',
+    pageClass: 'QrCodeToolPage',
   ),
   _ToolDefinition(
     tool: ToolItem.mobileProvisionProfile,
     title: 'Profile解析',
     icon: Icons.verified_user_rounded,
+    pageFile: 'lib/pages/mobileprovision_profile_page.dart',
+    pageClass: 'MobileProvisionProfilePage',
   ),
   _ToolDefinition(
     tool: ToolItem.plistDocument,
     title: 'Plist查看',
     icon: Icons.account_tree_rounded,
+    pageFile: 'lib/pages/plist_document_page.dart',
+    pageClass: 'PlistDocumentPage',
   ),
   _ToolDefinition(
     tool: ToolItem.randomStringGenerator,
     title: '随机生成',
     icon: Icons.password_rounded,
+    pageFile: 'lib/pages/random_string_generator_page.dart',
+    pageClass: 'RandomStringGeneratorPage',
   ),
   _ToolDefinition(
     tool: ToolItem.regexTester,
     title: '正则测试',
     icon: Icons.manage_search_rounded,
+    pageFile: 'lib/pages/regex_tester_page.dart',
+    pageClass: 'RegexTesterPage',
   ),
   _ToolDefinition(
     tool: ToolItem.textDiff,
     title: '文本Diff',
     icon: Icons.difference_rounded,
+    pageFile: 'lib/pages/text_diff_page.dart',
+    pageClass: 'TextDiffPage',
   ),
   _ToolDefinition(
     tool: ToolItem.lottiePreview,
     title: 'Lottie预览',
     icon: Icons.movie_filter_rounded,
+    pageFile: 'lib/pages/lottie_preview_page.dart',
+    pageClass: 'LottiePreviewPage',
   ),
   _ToolDefinition(
     tool: ToolItem.ipaUnpack,
     title: 'IPA解析',
     icon: Icons.folder_zip_rounded,
+    pageFile: 'lib/pages/ipa_unpack_page.dart',
+    pageClass: 'IpaUnpackPage',
   ),
 ];
 
 class ToolShellPage extends StatefulWidget {
-  const ToolShellPage({super.key});
+  const ToolShellPage({
+    super.key,
+    this.initialTool = ToolItem.svgPreview,
+    this.initialIpaAppInfo,
+  });
+
+  final ToolItem initialTool;
+  final IpaAppInfo? initialIpaAppInfo;
 
   @override
   State<ToolShellPage> createState() => _ToolShellPageState();
 }
 
 class _ToolShellPageState extends State<ToolShellPage> {
-  ToolItem _selectedTool = ToolItem.svgPreview;
+  late ToolItem _selectedTool;
+  String? _plistInitialPath;
+  IpaAppInfo? _profileInitialAppInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTool = widget.initialTool;
+  }
 
   void _handleToolSelected(ToolItem tool) {
+    _logToolSelected(tool);
+
     setState(() {
       _selectedTool = tool;
+      _plistInitialPath = null;
+      _profileInitialAppInfo = null;
+    });
+  }
+
+  void _logToolSelected(ToolItem tool) {
+    final definition = _definitionFor(tool);
+
+    debugPrint(
+      'lib/pages/tool_shell_page.dart#_ToolShellPageState._handleToolSelected: '
+      'opened ${definition.title} -> '
+      '${definition.pageFile}#${definition.pageClass}',
+    );
+  }
+
+  void _handleOpenInfoPlist(String path) {
+    setState(() {
+      _selectedTool = ToolItem.plistDocument;
+      _plistInitialPath = path;
+      _profileInitialAppInfo = null;
+    });
+  }
+
+  void _handleOpenEmbeddedProfile(IpaAppInfo appInfo) {
+    setState(() {
+      _selectedTool = ToolItem.mobileProvisionProfile;
+      _plistInitialPath = null;
+      _profileInitialAppInfo = appInfo;
     });
   }
 
@@ -226,9 +312,14 @@ class _ToolShellPageState extends State<ToolShellPage> {
       case ToolItem.qrCodeTool:
         return const QrCodeToolPage();
       case ToolItem.mobileProvisionProfile:
-        return const MobileProvisionProfilePage();
+        return MobileProvisionProfilePage(
+          initialInfo: _profileInitialAppInfo?.embeddedProfileInfo,
+          initialPath: _profileInitialAppInfo?.embeddedProfileInfo == null
+              ? _profileInitialAppInfo?.embeddedProfilePath
+              : null,
+        );
       case ToolItem.plistDocument:
-        return const PlistDocumentPage();
+        return PlistDocumentPage(initialPath: _plistInitialPath);
       case ToolItem.randomStringGenerator:
         return const RandomStringGeneratorPage();
       case ToolItem.regexTester:
@@ -238,9 +329,19 @@ class _ToolShellPageState extends State<ToolShellPage> {
       case ToolItem.lottiePreview:
         return const LottiePreviewPage();
       case ToolItem.ipaUnpack:
-        return const IpaUnpackPage();
+        return IpaUnpackPage(
+          initialAppInfo: widget.initialIpaAppInfo,
+          onOpenInfoPlist: _handleOpenInfoPlist,
+          onOpenEmbeddedProfile: _handleOpenEmbeddedProfile,
+        );
     }
   }
+}
+
+_ToolDefinition _definitionFor(ToolItem tool) {
+  return _toolDefinitions.firstWhere(
+    (_ToolDefinition definition) => definition.tool == tool,
+  );
 }
 
 class _ToolSidebar extends StatelessWidget {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:xml/xml.dart';
@@ -70,9 +71,14 @@ enum PlistNodeType {
   final String label;
 }
 
-class PlistDocumentParser {
+abstract class PlistDocumentParsing {
+  Future<PlistDocumentInfo> parse(String path);
+}
+
+class PlistDocumentParser implements PlistDocumentParsing {
   const PlistDocumentParser();
 
+  @override
   Future<PlistDocumentInfo> parse(String path) async {
     if (!path.toLowerCase().endsWith('.plist')) {
       throw const FormatException('当前仅支持 .plist 文件。');
@@ -82,6 +88,18 @@ class PlistDocumentParser {
 
     if (!file.existsSync()) {
       throw const FormatException('文件不存在，请重新选择。');
+    }
+
+    final bytes = await file.readAsBytes();
+    final directXmlText = _decodeXmlText(bytes);
+
+    if (directXmlText != null) {
+      try {
+        return parseXml(directXmlText, filePath: path);
+      } on FormatException {
+        // Fall back to plutil below; malformed XML plist files get the same
+        // user-facing error as binary plist conversion failures.
+      }
     }
 
     if (!Platform.isMacOS) {
@@ -101,6 +119,28 @@ class PlistDocumentParser {
     }
 
     return parseXml(result.stdout.toString(), filePath: path);
+  }
+
+  String? _decodeXmlText(List<int> bytes) {
+    if (bytes.isEmpty) {
+      return null;
+    }
+
+    if (bytes.length >= 6) {
+      final header = String.fromCharCodes(bytes.take(6));
+
+      if (header == 'bplist') {
+        return null;
+      }
+    }
+
+    final text = utf8.decode(bytes, allowMalformed: true).trimLeft();
+
+    if (!text.startsWith('<?xml') && !text.startsWith('<plist')) {
+      return null;
+    }
+
+    return text;
   }
 
   PlistDocumentInfo parseXml(String xmlText, {String filePath = ''}) {

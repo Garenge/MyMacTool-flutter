@@ -6,7 +6,14 @@ import 'package:flutter/services.dart';
 import 'plist_document_info.dart';
 
 class PlistDocumentPage extends StatefulWidget {
-  const PlistDocumentPage({super.key});
+  const PlistDocumentPage({
+    super.key,
+    this.initialPath,
+    this.parser = const PlistDocumentParser(),
+  });
+
+  final String? initialPath;
+  final PlistDocumentParsing parser;
 
   @override
   State<PlistDocumentPage> createState() => _PlistDocumentPageState();
@@ -24,7 +31,6 @@ class _PlistDocumentPageState extends State<PlistDocumentPage> {
   );
 
   final TextEditingController _searchController = TextEditingController();
-  final PlistDocumentParser _parser = const PlistDocumentParser();
   bool _isDraggingFile = false;
   bool _isLoading = false;
   PlistDocumentInfo? _info;
@@ -33,9 +39,38 @@ class _PlistDocumentPageState extends State<PlistDocumentPage> {
   String? _errorText;
 
   @override
+  void initState() {
+    super.initState();
+    _scheduleInitialLoad(widget.initialPath);
+  }
+
+  @override
+  void didUpdateWidget(covariant PlistDocumentPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.initialPath != oldWidget.initialPath) {
+      _scheduleInitialLoad(widget.initialPath);
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _scheduleInitialLoad(String? path) {
+    if (path == null || path.isEmpty) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+
+      await _loadPlist(path);
+    });
   }
 
   Future<void> _handlePickFile() async {
@@ -91,7 +126,7 @@ class _PlistDocumentPageState extends State<PlistDocumentPage> {
     });
 
     try {
-      final info = await _parser.parse(path);
+      final info = await widget.parser.parse(path);
 
       if (!mounted) {
         return;
@@ -406,35 +441,66 @@ class _PlistDropPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 20),
-                if (selectedPath != null)
-                  _StatusBanner(
-                    message: selectedPath!,
-                    icon: Icons.description_rounded,
-                    isError: false,
+                Flexible(
+                  child: _DropPanelStatusList(
+                    selectedPath: selectedPath,
+                    statusText: statusText,
+                    errorText: errorText,
                   ),
-                if (statusText != null) ...[
-                  if (selectedPath != null) const SizedBox(height: 10),
-                  _StatusBanner(
-                    message: statusText!,
-                    icon: Icons.check_circle_rounded,
-                    isError: false,
-                  ),
-                ],
-                if (errorText != null) ...[
-                  if (selectedPath != null || statusText != null)
-                    const SizedBox(height: 10),
-                  _StatusBanner(
-                    message: errorText!,
-                    icon: Icons.error_outline_rounded,
-                    isError: true,
-                  ),
-                ],
+                ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _DropPanelStatusList extends StatelessWidget {
+  const _DropPanelStatusList({
+    required this.selectedPath,
+    required this.statusText,
+    required this.errorText,
+  });
+
+  final String? selectedPath;
+  final String? statusText;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[
+      if (selectedPath != null)
+        _StatusBanner(
+          message: selectedPath!,
+          icon: Icons.description_rounded,
+          isError: false,
+        ),
+      if (statusText != null) ...[
+        if (selectedPath != null) const SizedBox(height: 10),
+        _StatusBanner(
+          message: statusText!,
+          icon: Icons.check_circle_rounded,
+          isError: false,
+        ),
+      ],
+      if (errorText != null) ...[
+        if (selectedPath != null || statusText != null)
+          const SizedBox(height: 10),
+        _StatusBanner(
+          message: errorText!,
+          icon: Icons.error_outline_rounded,
+          isError: true,
+        ),
+      ],
+    ];
+
+    if (children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SingleChildScrollView(child: Column(children: children));
   }
 }
 
@@ -554,47 +620,52 @@ class _ResultHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAF7F6),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(
-            Icons.account_tree_rounded,
-            color: Color(0xFF0F766E),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Plist 节点',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: const Color(0xFF23313C),
-                  fontWeight: FontWeight.w800,
-                ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF7F6),
+                borderRadius: BorderRadius.circular(14),
               ),
-              const SizedBox(height: 3),
-              Text(
-                '显示 $visibleCount / $itemCount 个节点',
-                style: const TextStyle(
-                  color: Color(0xFF607180),
-                  fontWeight: FontWeight.w700,
-                ),
+              child: const Icon(
+                Icons.account_tree_rounded,
+                color: Color(0xFF0F766E),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Plist 节点',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: const Color(0xFF23313C),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '显示 $visibleCount / $itemCount 个节点',
+                  style: const TextStyle(
+                    color: Color(0xFF607180),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          alignment: WrapAlignment.end,
           children: [
             OutlinedButton.icon(
               onPressed: onCopyPath,
