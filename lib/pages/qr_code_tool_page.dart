@@ -11,6 +11,8 @@ import 'package:pasteboard/pasteboard.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:zxing2/qrcode.dart';
 
+import 'qr_code_logo_info.dart';
+
 class QrCodeToolPage extends StatefulWidget {
   const QrCodeToolPage({super.key});
 
@@ -29,13 +31,16 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
   final TextEditingController _decodeResultController = TextEditingController();
   final FocusNode _decodeFocusNode = FocusNode();
   final _QrImageDecoder _decoder = const _QrImageDecoder();
+  final QrCodeLogoLoader _logoLoader = const QrCodeLogoLoader();
   bool _urlEncodeContent = false;
   int _errorCorrectionLevel = QrErrorCorrectLevel.M;
   QrEyeShape _eyeShape = QrEyeShape.square;
   QrDataModuleShape _dataModuleShape = QrDataModuleShape.square;
   int _qrImageSize = 720;
+  double _logoScale = 0.18;
   Color _foregroundColor = Colors.black;
   Color _backgroundColor = Colors.white;
+  QrCodeLogoInfo? _logoInfo;
   bool _isDraggingFile = false;
   bool _isDecoding = false;
   String? _generateStatusText;
@@ -111,6 +116,14 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
     });
   }
 
+  void _handleLogoScaleChanged(double value) {
+    setState(() {
+      _logoScale = value;
+      _generateStatusText = null;
+      _generateErrorText = null;
+    });
+  }
+
   void _handleForegroundColorChanged(Color value) {
     setState(() {
       _foregroundColor = value;
@@ -131,6 +144,57 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
     setState(() {
       _inputController.clear();
       _generateStatusText = null;
+      _generateErrorText = null;
+    });
+  }
+
+  Future<void> _handlePickLogoImage() async {
+    final file = await openFile(
+      acceptedTypeGroups: <XTypeGroup>[_imageTypeGroup],
+    );
+
+    if (file == null) {
+      return;
+    }
+
+    try {
+      final logoInfo = await _logoLoader.load(file.path);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _logoInfo = logoInfo;
+        _errorCorrectionLevel = QrErrorCorrectLevel.H;
+        _generateStatusText = '已添加 Logo，并自动切换到纠错 H。';
+        _generateErrorText = null;
+      });
+    } on FormatException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _generateErrorText = error.message;
+        _generateStatusText = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _generateErrorText = '读取 Logo 图片失败，请重新选择。';
+        _generateStatusText = null;
+      });
+    }
+  }
+
+  void _handleClearLogoImage() {
+    setState(() {
+      _logoInfo = null;
+      _generateStatusText = '已移除 Logo。';
       _generateErrorText = null;
     });
   }
@@ -194,6 +258,7 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
       final imageRect = Rect.fromLTWH(0, 0, imageSize, imageSize);
       canvas.drawRect(imageRect, Paint()..color = _backgroundColor);
       painter.paint(canvas, Size.square(imageSize));
+      await _paintLogo(canvas, imageSize);
       final picture = recorder.endRecording();
       final image = await picture.toImage(_qrImageSize, _qrImageSize);
       final imageData = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -224,6 +289,45 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
         _generateStatusText = null;
       });
     }
+  }
+
+  Future<void> _paintLogo(Canvas canvas, double qrSize) async {
+    final logoInfo = _logoInfo;
+
+    if (logoInfo == null) {
+      return;
+    }
+
+    final logoCodec = await ui.instantiateImageCodec(logoInfo.bytes);
+    final logoFrame = await logoCodec.getNextFrame();
+    final logoImage = logoFrame.image;
+    final logoBoxSize = qrSize * _logoScale;
+    final logoRect = Rect.fromCenter(
+      center: Offset(qrSize / 2, qrSize / 2),
+      width: logoBoxSize,
+      height: logoBoxSize,
+    );
+    final backgroundRect = logoRect.inflate(qrSize * 0.018);
+    final radius = Radius.circular(qrSize * 0.035);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(backgroundRect, radius),
+      Paint()..color = _backgroundColor,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(backgroundRect, radius),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (qrSize * 0.006).clamp(1, 8).toDouble()
+        ..color = _backgroundColor.withValues(alpha: 0.92),
+    );
+    paintImage(
+      canvas: canvas,
+      rect: logoRect,
+      image: logoImage,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+    );
   }
 
   Future<void> _handlePickImage() async {
@@ -589,6 +693,8 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
                   qrImageSize: _qrImageSize,
                   foregroundColor: _foregroundColor,
                   backgroundColor: _backgroundColor,
+                  logoInfo: _logoInfo,
+                  logoScale: _logoScale,
                   statusText: _generateErrorText ?? _generateStatusText,
                   isError: _generateErrorText != null,
                   onInputChanged: _handleInputChanged,
@@ -598,8 +704,11 @@ class _QrCodeToolPageState extends State<QrCodeToolPage> {
                   onEyeShapeChanged: _handleEyeShapeChanged,
                   onDataModuleShapeChanged: _handleDataModuleShapeChanged,
                   onQrImageSizeChanged: _handleQrImageSizeChanged,
+                  onLogoScaleChanged: _handleLogoScaleChanged,
                   onForegroundColorChanged: _handleForegroundColorChanged,
                   onBackgroundColorChanged: _handleBackgroundColorChanged,
+                  onPickLogoImage: _handlePickLogoImage,
+                  onClearLogoImage: _handleClearLogoImage,
                   onCopyContent: _handleCopyGeneratedContent,
                   onSaveImage: _handleSaveQrImage,
                   onClear: _handleClearInput,
@@ -754,6 +863,8 @@ class _QrGeneratePanel extends StatelessWidget {
     required this.qrImageSize,
     required this.foregroundColor,
     required this.backgroundColor,
+    required this.logoInfo,
+    required this.logoScale,
     required this.statusText,
     required this.isError,
     required this.onInputChanged,
@@ -762,8 +873,11 @@ class _QrGeneratePanel extends StatelessWidget {
     required this.onEyeShapeChanged,
     required this.onDataModuleShapeChanged,
     required this.onQrImageSizeChanged,
+    required this.onLogoScaleChanged,
     required this.onForegroundColorChanged,
     required this.onBackgroundColorChanged,
+    required this.onPickLogoImage,
+    required this.onClearLogoImage,
     required this.onCopyContent,
     required this.onSaveImage,
     required this.onClear,
@@ -779,6 +893,8 @@ class _QrGeneratePanel extends StatelessWidget {
   final int qrImageSize;
   final Color foregroundColor;
   final Color backgroundColor;
+  final QrCodeLogoInfo? logoInfo;
+  final double logoScale;
   final String? statusText;
   final bool isError;
   final ValueChanged<String> onInputChanged;
@@ -787,8 +903,11 @@ class _QrGeneratePanel extends StatelessWidget {
   final ValueChanged<QrEyeShape> onEyeShapeChanged;
   final ValueChanged<QrDataModuleShape> onDataModuleShapeChanged;
   final ValueChanged<double> onQrImageSizeChanged;
+  final ValueChanged<double> onLogoScaleChanged;
   final ValueChanged<Color> onForegroundColorChanged;
   final ValueChanged<Color> onBackgroundColorChanged;
+  final VoidCallback onPickLogoImage;
+  final VoidCallback onClearLogoImage;
   final VoidCallback onCopyContent;
   final VoidCallback onSaveImage;
   final VoidCallback onClear;
@@ -839,12 +958,17 @@ class _QrGeneratePanel extends StatelessWidget {
               qrImageSize: qrImageSize,
               foregroundColor: foregroundColor,
               backgroundColor: backgroundColor,
+              logoInfo: logoInfo,
+              logoScale: logoScale,
               onErrorCorrectionLevelChanged: onErrorCorrectionLevelChanged,
               onEyeShapeChanged: onEyeShapeChanged,
               onDataModuleShapeChanged: onDataModuleShapeChanged,
               onQrImageSizeChanged: onQrImageSizeChanged,
+              onLogoScaleChanged: onLogoScaleChanged,
               onForegroundColorChanged: onForegroundColorChanged,
               onBackgroundColorChanged: onBackgroundColorChanged,
+              onPickLogoImage: onPickLogoImage,
+              onClearLogoImage: onClearLogoImage,
             ),
             const SizedBox(height: 12),
             if (statusText != null) ...[
@@ -863,20 +987,15 @@ class _QrGeneratePanel extends StatelessWidget {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(18),
-                          child: QrImageView(
-                            data: qrContent,
-                            version: QrVersions.auto,
+                          child: _QrPreview(
+                            qrContent: qrContent,
                             errorCorrectionLevel: errorCorrectionLevel,
-                            size: 240,
+                            eyeShape: eyeShape,
+                            dataModuleShape: dataModuleShape,
+                            foregroundColor: foregroundColor,
                             backgroundColor: backgroundColor,
-                            eyeStyle: QrEyeStyle(
-                              eyeShape: eyeShape,
-                              color: foregroundColor,
-                            ),
-                            dataModuleStyle: QrDataModuleStyle(
-                              dataModuleShape: dataModuleShape,
-                              color: foregroundColor,
-                            ),
+                            logoInfo: logoInfo,
+                            logoScale: logoScale,
                           ),
                         ),
                       )
@@ -921,12 +1040,17 @@ class _QrGenerateOptions extends StatelessWidget {
     required this.qrImageSize,
     required this.foregroundColor,
     required this.backgroundColor,
+    required this.logoInfo,
+    required this.logoScale,
     required this.onErrorCorrectionLevelChanged,
     required this.onEyeShapeChanged,
     required this.onDataModuleShapeChanged,
     required this.onQrImageSizeChanged,
+    required this.onLogoScaleChanged,
     required this.onForegroundColorChanged,
     required this.onBackgroundColorChanged,
+    required this.onPickLogoImage,
+    required this.onClearLogoImage,
   });
 
   static const List<_QrCorrectionLevelOption> _levelOptions = [
@@ -968,12 +1092,17 @@ class _QrGenerateOptions extends StatelessWidget {
   final int qrImageSize;
   final Color foregroundColor;
   final Color backgroundColor;
+  final QrCodeLogoInfo? logoInfo;
+  final double logoScale;
   final ValueChanged<int> onErrorCorrectionLevelChanged;
   final ValueChanged<QrEyeShape> onEyeShapeChanged;
   final ValueChanged<QrDataModuleShape> onDataModuleShapeChanged;
   final ValueChanged<double> onQrImageSizeChanged;
+  final ValueChanged<double> onLogoScaleChanged;
   final ValueChanged<Color> onForegroundColorChanged;
   final ValueChanged<Color> onBackgroundColorChanged;
+  final VoidCallback onPickLogoImage;
+  final VoidCallback onClearLogoImage;
 
   @override
   Widget build(BuildContext context) {
@@ -1069,9 +1198,257 @@ class _QrGenerateOptions extends StatelessWidget {
               colors: _backgroundOptions,
               onChanged: onBackgroundColorChanged,
             ),
+            const SizedBox(height: 12),
+            _QrLogoOptions(
+              logoInfo: logoInfo,
+              logoScale: logoScale,
+              onLogoScaleChanged: onLogoScaleChanged,
+              onPickLogoImage: onPickLogoImage,
+              onClearLogoImage: onClearLogoImage,
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _QrPreview extends StatelessWidget {
+  const _QrPreview({
+    required this.qrContent,
+    required this.errorCorrectionLevel,
+    required this.eyeShape,
+    required this.dataModuleShape,
+    required this.foregroundColor,
+    required this.backgroundColor,
+    required this.logoInfo,
+    required this.logoScale,
+  });
+
+  final String qrContent;
+  final int errorCorrectionLevel;
+  final QrEyeShape eyeShape;
+  final QrDataModuleShape dataModuleShape;
+  final Color foregroundColor;
+  final Color backgroundColor;
+  final QrCodeLogoInfo? logoInfo;
+  final double logoScale;
+
+  @override
+  Widget build(BuildContext context) {
+    final logo = logoInfo;
+
+    return SizedBox.square(
+      dimension: 240,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          QrImageView(
+            data: qrContent,
+            version: QrVersions.auto,
+            errorCorrectionLevel: errorCorrectionLevel,
+            size: 240,
+            backgroundColor: backgroundColor,
+            eyeStyle: QrEyeStyle(eyeShape: eyeShape, color: foregroundColor),
+            dataModuleStyle: QrDataModuleStyle(
+              dataModuleShape: dataModuleShape,
+              color: foregroundColor,
+            ),
+          ),
+          if (logo != null)
+            _QrLogoOverlay(
+              logo: logo,
+              logoSize: 240 * logoScale,
+              backgroundColor: backgroundColor,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QrLogoOverlay extends StatelessWidget {
+  const _QrLogoOverlay({
+    required this.logo,
+    required this.logoSize,
+    required this.backgroundColor,
+  });
+
+  final QrCodeLogoInfo logo;
+  final double logoSize;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: backgroundColor, width: 3),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Image.memory(
+          logo.bytes,
+          width: logoSize,
+          height: logoSize,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+        ),
+      ),
+    );
+  }
+}
+
+class _QrLogoOptions extends StatelessWidget {
+  const _QrLogoOptions({
+    required this.logoInfo,
+    required this.logoScale,
+    required this.onLogoScaleChanged,
+    required this.onPickLogoImage,
+    required this.onClearLogoImage,
+  });
+
+  final QrCodeLogoInfo? logoInfo;
+  final double logoScale;
+  final ValueChanged<double> onLogoScaleChanged;
+  final VoidCallback onPickLogoImage;
+  final VoidCallback onClearLogoImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final logo = logoInfo;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FAFB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD8E2E8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Logo',
+                    style: TextStyle(
+                      color: Color(0xFF23313C),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${(logoScale * 100).round()}%',
+                  style: const TextStyle(
+                    color: Color(0xFF607180),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (logo == null)
+              const _MutedQrText('可选嵌入 Logo，建议使用纠错 H 并控制在 24% 以内。')
+            else
+              _QrLogoSummary(logo: logo),
+            Slider(
+              value: logoScale,
+              min: 0.12,
+              max: 0.24,
+              divisions: 6,
+              onChanged: logo == null ? null : onLogoScaleChanged,
+            ),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onPickLogoImage,
+                  icon: const Icon(Icons.add_photo_alternate_rounded, size: 18),
+                  label: Text(logo == null ? '选择Logo' : '更换Logo'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: logo == null ? null : onClearLogoImage,
+                  icon: const Icon(
+                    Icons.remove_circle_outline_rounded,
+                    size: 18,
+                  ),
+                  label: const Text('移除Logo'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QrLogoSummary extends StatelessWidget {
+  const _QrLogoSummary({required this.logo});
+
+  final QrCodeLogoInfo logo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(
+            logo.bytes,
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                logo.fileName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF23313C),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                logo.sizeLabel,
+                style: const TextStyle(
+                  color: Color(0xFF607180),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MutedQrText extends StatelessWidget {
+  const _MutedQrText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(color: const Color(0xFF607180)),
     );
   }
 }
