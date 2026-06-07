@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
@@ -14,12 +15,14 @@ class _SvgHistoryRecord {
     required this.label,
     required this.content,
     required this.createdAt,
+    this.sourcePath,
   });
 
   final String id;
   final String label;
   final String content;
   final DateTime createdAt;
+  final String? sourcePath;
 }
 
 class SvgPreviewPage extends StatefulWidget {
@@ -37,6 +40,9 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
   final TextEditingController _svgController = TextEditingController();
   final List<_SvgHistoryRecord> _historyRecords = <_SvgHistoryRecord>[];
   String _renderedSvg = '';
+  String? _sourcePath;
+  String _sourceLabel = '手动输入';
+  String? _statusText;
   String? _errorText;
   bool _isDraggingFile = false;
   double _previewScale = 1;
@@ -63,6 +69,9 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
     setState(() {
       _svgController.clear();
       _renderedSvg = '';
+      _sourcePath = null;
+      _sourceLabel = '手动输入';
+      _statusText = null;
       _errorText = null;
       _previewScale = 1;
     });
@@ -87,6 +96,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
         svgSource,
         historyLabel: '拖拽导入',
         hudMessage: '导入成功',
+        sourcePath: file.path.isEmpty ? null : file.path,
       );
     } catch (error) {
       if (!mounted) {
@@ -94,6 +104,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       }
 
       setState(() {
+        _statusText = null;
         _errorText = '读取拖入文件失败：$fileName';
       });
     }
@@ -149,6 +160,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
         fileContent,
         historyLabel: '文件导入',
         hudMessage: '导入成功',
+        sourcePath: file.path.isEmpty ? null : file.path,
       );
     } catch (error) {
       if (!mounted) {
@@ -156,6 +168,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       }
 
       setState(() {
+        _statusText = null;
         _errorText = '读取文件失败：${file.name}';
       });
     }
@@ -173,6 +186,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       clipboardText,
       historyLabel: '剪切板粘贴',
       hudMessage: '粘贴成功',
+      sourcePath: null,
     );
   }
 
@@ -181,8 +195,75 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       record.content,
       historyLabel: record.label,
       hudMessage: '已恢复记录',
+      sourcePath: record.sourcePath,
       addToHistory: false,
     );
+  }
+
+  Future<void> _handleCopySvg() async {
+    if (_renderedSvg.trim().isEmpty) {
+      setState(() {
+        _statusText = null;
+        _errorText = '当前没有可复制的 SVG 内容。';
+      });
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: _renderedSvg));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制 SVG 内容。';
+      _errorText = null;
+    });
+  }
+
+  Future<void> _handleCopyPath() async {
+    final sourcePath = _sourcePath;
+
+    if (sourcePath == null || sourcePath.trim().isEmpty) {
+      setState(() {
+        _statusText = null;
+        _errorText = '当前 SVG 没有关联文件路径。';
+      });
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: sourcePath));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制 SVG 文件路径。';
+      _errorText = null;
+    });
+  }
+
+  Future<void> _handleCopySummary() async {
+    if (_renderedSvg.trim().isEmpty) {
+      setState(() {
+        _statusText = null;
+        _errorText = '当前没有可复制的 SVG 摘要。';
+      });
+      return;
+    }
+
+    final summary = _buildSvgSummary();
+    await Clipboard.setData(ClipboardData(text: summary));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制 SVG 摘要。';
+      _errorText = null;
+    });
   }
 
   Future<void> _handleSaveFile() async {
@@ -216,6 +297,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       }
 
       setState(() {
+        _statusText = null;
         _errorText = null;
       });
       _showHud('另存为成功');
@@ -225,6 +307,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       }
 
       setState(() {
+        _statusText = null;
         _errorText = '保存 SVG 文件失败，请重试。';
       });
     }
@@ -247,6 +330,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       }
 
       setState(() {
+        _statusText = null;
         _errorText = null;
       });
       _showHud('已在浏览器打开');
@@ -256,6 +340,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       }
 
       setState(() {
+        _statusText = null;
         _errorText = '浏览器打开失败，请重试。';
       });
     }
@@ -265,6 +350,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
     String source, {
     required String historyLabel,
     required String hudMessage,
+    String? sourcePath,
     bool addToHistory = true,
   }) {
     final normalizedSource = source.trim();
@@ -274,17 +360,27 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
 
       if (normalizedSource.isEmpty) {
         _renderedSvg = '';
+        _sourcePath = null;
+        _sourceLabel = historyLabel;
+        _statusText = null;
         _errorText = '内容为空，无法生成预览。';
         _previewScale = 1;
         return;
       }
 
       _renderedSvg = normalizedSource;
+      _sourcePath = sourcePath;
+      _sourceLabel = historyLabel;
+      _statusText = null;
       _errorText = null;
       _previewScale = 1;
 
       if (addToHistory) {
-        _rememberHistory(label: historyLabel, content: source);
+        _rememberHistory(
+          label: historyLabel,
+          content: source,
+          sourcePath: sourcePath,
+        );
       }
     });
 
@@ -296,6 +392,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
   void _rememberHistory({
     required String label,
     required String content,
+    String? sourcePath,
   }) {
     final normalizedContent = content.trim();
 
@@ -313,6 +410,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
         label: label,
         content: content,
         createdAt: DateTime.now(),
+        sourcePath: sourcePath,
       ),
     );
 
@@ -379,6 +477,22 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
     return '$hour:$minute:$second';
   }
 
+  String _buildSvgSummary() {
+    final sourcePath = _sourcePath;
+    final lines = _renderedSvg.split('\n').length;
+    final chars = _renderedSvg.length;
+    final bytes = utf8.encode(_renderedSvg).length;
+
+    return <String>[
+      'SVG 摘要',
+      '来源：$_sourceLabel',
+      '字符数：$chars',
+      '字节数：$bytes',
+      '行数：$lines',
+      if (sourcePath != null && sourcePath.trim().isNotEmpty) '路径：$sourcePath',
+    ].join('\n');
+  }
+
   String _buildSuggestedFileName(String extension) {
     final now = DateTime.now();
     final year = now.year.toString().padLeft(4, '0');
@@ -398,7 +512,8 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
       '${tempDirectory.path}/${_buildSuggestedFileName('.html')}',
     );
 
-    final htmlContent = '''
+    final htmlContent =
+        '''
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
@@ -494,6 +609,108 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
     });
   }
 
+  Widget _buildInputColumn(ThemeData theme) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          children: [
+            SizedBox(
+              height: _resolveInputPanelHeight(constraints),
+              child: _SvgDropInputPanel(
+                controller: _svgController,
+                isDraggingFile: _isDraggingFile,
+                onDragChanged: (isDraggingFile) {
+                  setState(() {
+                    _isDraggingFile = isDraggingFile;
+                  });
+                },
+                onDropFiles: _handleDropFiles,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: SingleChildScrollView(child: _buildInputActions(theme)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  double _resolveInputPanelHeight(BoxConstraints constraints) {
+    final preferredHeight = constraints.maxHeight * 0.48;
+    final maxInputHeight = (constraints.maxHeight - 180).clamp(160.0, 420.0);
+    return preferredHeight.clamp(160.0, maxInputHeight);
+  }
+
+  Widget _buildInputActions(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '支持将 SVG 文件直接拖入左侧区域，内容会自动填充并立即渲染。',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: const Color(0xFF708190),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildActionButtons(),
+        if (_statusText != null) ...[
+          const SizedBox(height: 12),
+          _StatusText(message: _statusText!, isError: false),
+        ],
+        if (_historyRecords.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _SvgHistoryList(
+            records: _historyRecords,
+            formatTime: _formatHistoryTime,
+            onSelected: _handleHistorySelected,
+          ),
+        ],
+        if (_errorText != null) ...[
+          const SizedBox(height: 12),
+          _StatusText(message: _errorText!, isError: true),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        OutlinedButton(onPressed: _handleOpenFile, child: const Text('打开文件')),
+        OutlinedButton(onPressed: _handlePaste, child: const Text('粘贴')),
+        FilledButton(onPressed: _handleRender, child: const Text('确定')),
+        OutlinedButton(onPressed: _handleClear, child: const Text('清空')),
+        OutlinedButton.icon(
+          onPressed: _renderedSvg.isEmpty ? null : _handleCopySvg,
+          icon: const Icon(Icons.copy_rounded, size: 18),
+          label: const Text('复制内容'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _renderedSvg.isEmpty ? null : _handleCopySummary,
+          icon: const Icon(Icons.copy_all_rounded, size: 18),
+          label: const Text('复制摘要'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _renderedSvg.isEmpty ? null : _handleCopyPath,
+          icon: const Icon(Icons.link_rounded, size: 18),
+          label: const Text('复制路径'),
+        ),
+        OutlinedButton(
+          onPressed: _renderedSvg.isEmpty ? null : _handleSaveFile,
+          child: const Text('另存为'),
+        ),
+        OutlinedButton(
+          onPressed: _renderedSvg.isEmpty ? null : _handleOpenInBrowser,
+          child: const Text('浏览器打开'),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -512,82 +729,7 @@ class _SvgPreviewPageState extends State<SvgPreviewPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: _SvgDropInputPanel(
-                        controller: _svgController,
-                        isDraggingFile: _isDraggingFile,
-                        onDragChanged: (isDraggingFile) {
-                          setState(() {
-                            _isDraggingFile = isDraggingFile;
-                          });
-                        },
-                        onDropFiles: _handleDropFiles,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '支持将 SVG 文件直接拖入左侧区域，内容会自动填充并立即渲染。',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF708190),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        OutlinedButton(
-                          onPressed: _handleOpenFile,
-                          child: const Text('打开文件'),
-                        ),
-                        OutlinedButton(
-                          onPressed: _handlePaste,
-                          child: const Text('粘贴'),
-                        ),
-                        FilledButton(
-                          onPressed: _handleRender,
-                          child: const Text('确定'),
-                        ),
-                        OutlinedButton(
-                          onPressed: _handleClear,
-                          child: const Text('清空'),
-                        ),
-                        OutlinedButton(
-                          onPressed: _renderedSvg.isEmpty ? null : _handleSaveFile,
-                          child: const Text('另存为'),
-                        ),
-                        OutlinedButton(
-                          onPressed: _renderedSvg.isEmpty ? null : _handleOpenInBrowser,
-                          child: const Text('浏览器打开'),
-                        ),
-                      ],
-                    ),
-                    if (_historyRecords.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _SvgHistoryList(
-                        records: _historyRecords,
-                        formatTime: _formatHistoryTime,
-                        onSelected: _handleHistorySelected,
-                      ),
-                    ],
-                    if (_errorText != null) ...[
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          _errorText!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              Expanded(child: _buildInputColumn(theme)),
               const SizedBox(width: 20),
               Expanded(
                 child: _PreviewPanel(
@@ -751,6 +893,27 @@ class _SvgDropInputPanel extends StatelessWidget {
   }
 }
 
+class _StatusText extends StatelessWidget {
+  const _StatusText({required this.message, required this.isError});
+
+  final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = isError ? theme.colorScheme.error : const Color(0xFF0F766E);
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        message,
+        style: theme.textTheme.bodyMedium?.copyWith(color: color),
+      ),
+    );
+  }
+}
+
 class _PreviewPanel extends StatelessWidget {
   const _PreviewPanel({
     required this.renderedSvg,
@@ -793,11 +956,11 @@ class _PreviewPanel extends StatelessWidget {
             Expanded(
               child: Listener(
                 onPointerSignal: onPointerSignal,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
                       border: Border.all(color: const Color(0xFFD8E2E8)),
                     ),
                     child: LayoutBuilder(
@@ -927,10 +1090,7 @@ class _PreviewViewportState extends State<_PreviewViewport> {
               child: SizedBox(
                 width: widget.frameWidth,
                 height: widget.frameHeight,
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  child: widget.child,
-                ),
+                child: FittedBox(fit: BoxFit.contain, child: widget.child),
               ),
             ),
           ),
@@ -958,10 +1118,7 @@ class _PreviewContentFrame extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFF7FB8B3),
-              width: 1.5,
-            ),
+            border: Border.all(color: const Color(0xFF7FB8B3), width: 1.5),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x120F172A),
@@ -1109,11 +1266,7 @@ class _PreviewPlaceholder extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          Icons.image_outlined,
-          size: 44,
-          color: const Color(0xFF8A9AA8),
-        ),
+        Icon(Icons.image_outlined, size: 44, color: const Color(0xFF8A9AA8)),
         const SizedBox(height: 12),
         Text(
           '渲染结果将在这里显示',

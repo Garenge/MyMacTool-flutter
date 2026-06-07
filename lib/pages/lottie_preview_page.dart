@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 
 class _LottieFileRecord {
@@ -36,6 +37,7 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
   final List<_LottieFileRecord> _files = <_LottieFileRecord>[];
   final Set<String> _selectedPaths = <String>{};
   bool _isDraggingFiles = false;
+  String? _statusText;
   String? _errorText;
 
   List<_LottieFileRecord> get _selectedFiles {
@@ -65,6 +67,7 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
       setState(() {
         _files.clear();
         _selectedPaths.clear();
+        _statusText = null;
         _errorText = '当前文件夹下没有可预览的 Lottie JSON 文件。';
       });
       return;
@@ -72,6 +75,7 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
 
     setState(() {
       _replaceFiles(records);
+      _statusText = '已加载 ${records.length} 个 Lottie 文件。';
       _errorText = null;
     });
   }
@@ -94,6 +98,7 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
 
     if (records.isEmpty) {
       setState(() {
+        _statusText = null;
         _errorText = '未识别到可预览的 Lottie JSON 文件。';
       });
       return;
@@ -101,6 +106,7 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
 
     setState(() {
       _mergeFiles(records);
+      _statusText = '已导入 ${records.length} 个 Lottie 文件。';
       _errorText = null;
     });
   }
@@ -228,6 +234,7 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
       }
 
       _errorText = null;
+      _statusText = null;
     });
   }
 
@@ -235,6 +242,7 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
     setState(() {
       _files.clear();
       _selectedPaths.clear();
+      _statusText = null;
       _errorText = null;
     });
   }
@@ -244,6 +252,7 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
       _selectedPaths
         ..clear()
         ..addAll(_files.map((_LottieFileRecord file) => file.path));
+      _statusText = '已选中全部 Lottie 文件。';
       _errorText = null;
     });
   }
@@ -263,6 +272,9 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
       _selectedPaths
         ..clear()
         ..addAll(nextSelection);
+      _statusText = nextSelection.isEmpty
+          ? '已取消全部选择。'
+          : '已反选 ${nextSelection.length} 个 Lottie 文件。';
       _errorText = null;
     });
   }
@@ -275,8 +287,76 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
 
       final record = _files.removeAt(oldIndex);
       _files.insert(newIndex, record);
+      _statusText = '已调整图层顺序。';
       _errorText = null;
     });
+  }
+
+  Future<void> _handleCopySelectedPaths() async {
+    final selectedFiles = _selectedFiles;
+
+    if (selectedFiles.isEmpty) {
+      setState(() {
+        _statusText = null;
+        _errorText = '请先选择要复制路径的 Lottie 文件。';
+      });
+      return;
+    }
+
+    await Clipboard.setData(
+      ClipboardData(
+        text: selectedFiles
+            .map((_LottieFileRecord file) => file.path)
+            .join('\n'),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制 ${selectedFiles.length} 个 Lottie 文件路径。';
+      _errorText = null;
+    });
+  }
+
+  Future<void> _handleCopySelectedSummary() async {
+    final selectedFiles = _selectedFiles;
+
+    if (selectedFiles.isEmpty) {
+      setState(() {
+        _statusText = null;
+        _errorText = '请先选择要复制摘要的 Lottie 文件。';
+      });
+      return;
+    }
+
+    await Clipboard.setData(
+      ClipboardData(text: _buildSelectedSummaryText(selectedFiles)),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _statusText = '已复制 ${selectedFiles.length} 个 Lottie 文件摘要。';
+      _errorText = null;
+    });
+  }
+
+  String _buildSelectedSummaryText(List<_LottieFileRecord> files) {
+    return files
+        .map(
+          (_LottieFileRecord file) => [
+            'File: ${file.name}',
+            'Size: ${_formatFileSize(file.sizeInBytes)}',
+            'Modified At: ${_formatTimestamp(file.modifiedAt)}',
+            'Path: ${file.path}',
+          ].join('\n'),
+        )
+        .join('\n\n');
   }
 
   String _formatTimestamp(DateTime value) {
@@ -334,10 +414,14 @@ class _LottiePreviewPageState extends State<LottiePreviewPage> {
             onToggleSelection: _areAllFilesSelected
                 ? _handleInvertSelection
                 : _handleSelectAll,
+            onCopySelectedSummary: _handleCopySelectedSummary,
+            onCopySelectedPaths: _handleCopySelectedPaths,
             selectionActionLabel: _areAllFilesSelected ? '反选' : '全选',
             selectionActionIcon: _areAllFilesSelected
                 ? Icons.flip_rounded
                 : Icons.done_all_rounded,
+            statusText: _errorText ?? _statusText,
+            isError: _errorText != null,
             onClear: _handleClear,
             formatTimestamp: _formatTimestamp,
             formatFileSize: _formatFileSize,
@@ -557,8 +641,12 @@ class _LottieFileListPane extends StatelessWidget {
     required this.onReorder,
     required this.onOpenFiles,
     required this.onToggleSelection,
+    required this.onCopySelectedSummary,
+    required this.onCopySelectedPaths,
     required this.selectionActionLabel,
     required this.selectionActionIcon,
+    required this.statusText,
+    required this.isError,
     required this.onClear,
     required this.formatTimestamp,
     required this.formatFileSize,
@@ -573,8 +661,12 @@ class _LottieFileListPane extends StatelessWidget {
   final void Function(int oldIndex, int newIndex) onReorder;
   final Future<void> Function() onOpenFiles;
   final VoidCallback onToggleSelection;
+  final VoidCallback onCopySelectedSummary;
+  final VoidCallback onCopySelectedPaths;
   final String selectionActionLabel;
   final IconData selectionActionIcon;
+  final String? statusText;
+  final bool isError;
   final VoidCallback onClear;
   final String Function(DateTime value) formatTimestamp;
   final String Function(int value) formatFileSize;
@@ -614,6 +706,10 @@ class _LottieFileListPane extends StatelessWidget {
                 color: const Color(0xFF607180),
               ),
             ),
+            if (statusText != null) ...[
+              const SizedBox(height: 12),
+              _LottieHintBanner(message: statusText!, isError: isError),
+            ],
             const SizedBox(height: 14),
             Expanded(
               child: DropTarget(
@@ -726,6 +822,26 @@ class _LottieFileListPane extends StatelessWidget {
                 SizedBox(
                   width: 140,
                   child: OutlinedButton.icon(
+                    onPressed: selectedPaths.isEmpty
+                        ? null
+                        : onCopySelectedSummary,
+                    icon: const Icon(Icons.copy_all_rounded),
+                    label: const Text('复制摘要'),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: OutlinedButton.icon(
+                    onPressed: selectedPaths.isEmpty
+                        ? null
+                        : onCopySelectedPaths,
+                    icon: const Icon(Icons.copy_rounded),
+                    label: const Text('复制路径'),
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: OutlinedButton.icon(
                     onPressed: onClear,
                     icon: const Icon(Icons.clear_all_rounded),
                     label: const Text('清空'),
@@ -815,29 +931,37 @@ class _LottieFileListItem extends StatelessWidget {
 }
 
 class _LottieHintBanner extends StatelessWidget {
-  const _LottieHintBanner({required this.message});
+  const _LottieHintBanner({required this.message, this.isError = true});
 
   final String message;
+  final bool isError;
 
   @override
   Widget build(BuildContext context) {
+    final foreground = isError
+        ? const Color(0xFF8D2A24)
+        : const Color(0xFF0F766E);
+    final background = isError
+        ? const Color(0xFFFFF3F2)
+        : const Color(0xFFEAF7F6);
+
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3F2),
+        color: background,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF0B6B2)),
+        border: Border.all(color: foreground.withValues(alpha: 0.18)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            const Icon(Icons.info_outline_rounded, color: Color(0xFFC63C34)),
+            Icon(Icons.info_outline_rounded, color: foreground),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF8D2A24),
+                  color: foreground,
                   fontWeight: FontWeight.w600,
                 ),
               ),
