@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'color_palette_picker.dart';
+
 class ColorConverterPage extends StatefulWidget {
   const ColorConverterPage({super.key});
 
@@ -49,6 +51,16 @@ class _ColorConverterPageState extends State<ColorConverterPage> {
     setState(() {
       _inputController.clear();
       _result = null;
+      _errorText = null;
+    });
+  }
+
+  void _handlePaletteColorSelected(Color color) {
+    final value = _ColorValue.fromColor(color);
+
+    setState(() {
+      _inputController.text = value.inputHexText;
+      _result = _ColorResult.fromValue(value, statusText: '已从颜色盘选取。');
       _errorText = null;
     });
   }
@@ -237,26 +249,43 @@ class _ColorConverterPageState extends State<ColorConverterPage> {
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ColorInputBar(
-                    controller: _inputController,
-                    onConvert: _handleConvert,
-                    onClear: _handleClear,
-                  ),
-                  const SizedBox(height: 18),
-                  if (_errorText != null) ...[
-                    _ColorMessageBanner(message: _errorText!, isError: true),
-                    const SizedBox(height: 18),
-                  ] else if (result != null) ...[
-                    _ColorMessageBanner(
-                      message: result.statusText,
-                      isError: false,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _ColorInputBar(
+                      controller: _inputController,
+                      onConvert: _handleConvert,
+                      onClear: _handleClear,
                     ),
-                    const SizedBox(height: 18),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 14)),
+                  SliverToBoxAdapter(
+                    child: ColorPalettePicker(
+                      initialColor:
+                          result?.value.color ?? const Color(0xFF0F766E),
+                      onColorSelected: _handlePaletteColorSelected,
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 18)),
+                  if (_errorText != null) ...[
+                    SliverToBoxAdapter(
+                      child: _ColorMessageBanner(
+                        message: _errorText!,
+                        isError: true,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 18)),
+                  ] else if (result != null) ...[
+                    SliverToBoxAdapter(
+                      child: _ColorMessageBanner(
+                        message: result.statusText,
+                        isError: false,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 18)),
                   ],
-                  Expanded(
+                  SliverFillRemaining(
+                    hasScrollBody: result != null,
                     child: result == null
                         ? const _ColorEmptyState()
                         : _ColorResultView(
@@ -288,6 +317,30 @@ class _ColorValue {
   final int blue;
 
   Color get color => Color.fromARGB(alpha, red, green, blue);
+
+  factory _ColorValue.fromColor(Color color) {
+    final value = color.toARGB32();
+
+    return _ColorValue(
+      alpha: (value >> 24) & 0xFF,
+      red: (value >> 16) & 0xFF,
+      green: (value >> 8) & 0xFF,
+      blue: value & 0xFF,
+    );
+  }
+
+  String get inputHexText {
+    final redText = _ColorResult._formatHexByte(red);
+    final greenText = _ColorResult._formatHexByte(green);
+    final blueText = _ColorResult._formatHexByte(blue);
+
+    if (alpha == 255) {
+      return '#$redText$greenText$blueText';
+    }
+
+    final alphaText = _ColorResult._formatHexByte(alpha);
+    return '#$redText$greenText$blueText$alphaText';
+  }
 }
 
 class _ColorResult {
@@ -479,27 +532,53 @@ class _ColorInputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        if (constraints.maxWidth < 720) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildTextField(),
+              const SizedBox(height: 10),
+              Align(alignment: Alignment.centerLeft, child: _buildActions()),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: _buildTextField()),
+            const SizedBox(width: 12),
+            _buildActions(),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTextField() {
+    return TextField(
+      controller: controller,
+      onSubmitted: (_) => onConvert(),
+      decoration: const InputDecoration(
+        labelText: '颜色值',
+        hintText: '#0F766E / rgba(15, 118, 110, 0.5) / Color(0xFF0F766E)',
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+
+  Widget _buildActions() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            onSubmitted: (_) => onConvert(),
-            decoration: const InputDecoration(
-              labelText: '颜色值',
-              hintText: '#0F766E / rgba(15, 118, 110, 0.5) / Color(0xFF0F766E)',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
         FilledButton.icon(
           onPressed: onConvert,
           icon: const Icon(Icons.swap_horiz_rounded, size: 18),
           label: const Text('转换'),
         ),
-        const SizedBox(width: 8),
         OutlinedButton.icon(
           onPressed: onClear,
           icon: const Icon(Icons.cleaning_services_rounded, size: 18),
@@ -572,81 +651,84 @@ class _ColorResultView extends StatelessWidget {
         _ColorPreviewPanel(result: result),
         const SizedBox(width: 18),
         Expanded(
-          child: ListView(
-            children: [
-              const _ColorResultGroupTitle('常用格式'),
-              _ColorResultTile(
-                label: 'HEX',
-                value: result.hex,
-                onCopy: () => onCopyValue(result.hex, '已复制 HEX。'),
-              ),
-              _ColorResultTile(
-                label: 'ARGB HEX',
-                value: result.argbHex,
-                onCopy: () => onCopyValue(result.argbHex, '已复制 ARGB HEX。'),
-              ),
-              _ColorResultTile(
-                label: 'RGBA HEX',
-                value: result.rgbaHex,
-                onCopy: () => onCopyValue(result.rgbaHex, '已复制 RGBA HEX。'),
-              ),
-              _ColorResultTile(
-                label: 'RGB',
-                value: result.rgb,
-                onCopy: () => onCopyValue(result.rgb, '已复制 RGB。'),
-              ),
-              _ColorResultTile(
-                label: 'RGBA',
-                value: result.rgba,
-                onCopy: () => onCopyValue(result.rgba, '已复制 RGBA。'),
-              ),
-              _ColorResultTile(
-                label: 'HSL',
-                value: result.hsl,
-                onCopy: () => onCopyValue(result.hsl, '已复制 HSL。'),
-              ),
-              _ColorResultTile(
-                label: 'HSV',
-                value: result.hsv,
-                onCopy: () => onCopyValue(result.hsv, '已复制 HSV。'),
-              ),
-              _ColorResultTile(
-                label: 'CMYK',
-                value: result.cmyk,
-                onCopy: () => onCopyValue(result.cmyk, '已复制 CMYK。'),
-              ),
-              _ColorResultTile(
-                label: 'Flutter',
-                value: result.flutterColor,
-                onCopy: () =>
-                    onCopyValue(result.flutterColor, '已复制 Flutter Color。'),
-              ),
-              const SizedBox(height: 8),
-              const _ColorResultGroupTitle('标注模板'),
-              _ColorResultTile(
-                label: 'CSS 变量',
-                value: result.cssVariable,
-                onCopy: () => onCopyValue(result.cssVariable, '已复制 CSS 变量。'),
-              ),
-              _ColorResultTile(
-                label: 'Flutter 常量',
-                value: result.flutterConst,
-                onCopy: () =>
-                    onCopyValue(result.flutterConst, '已复制 Flutter 常量。'),
-              ),
-              _ColorResultTile(
-                label: 'Swift UIColor',
-                value: result.swiftUIColor,
-                onCopy: () =>
-                    onCopyValue(result.swiftUIColor, '已复制 Swift UIColor。'),
-              ),
-              _ColorResultTile(
-                label: 'Android XML',
-                value: result.androidColor,
-                onCopy: () =>
-                    onCopyValue(result.androidColor, '已复制 Android XML。'),
-              ),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _ColorResultGroupTitle('常用格式'),
+                _ColorResultTile(
+                  label: 'HEX',
+                  value: result.hex,
+                  onCopy: () => onCopyValue(result.hex, '已复制 HEX。'),
+                ),
+                _ColorResultTile(
+                  label: 'ARGB HEX',
+                  value: result.argbHex,
+                  onCopy: () => onCopyValue(result.argbHex, '已复制 ARGB HEX。'),
+                ),
+                _ColorResultTile(
+                  label: 'RGBA HEX',
+                  value: result.rgbaHex,
+                  onCopy: () => onCopyValue(result.rgbaHex, '已复制 RGBA HEX。'),
+                ),
+                _ColorResultTile(
+                  label: 'RGB',
+                  value: result.rgb,
+                  onCopy: () => onCopyValue(result.rgb, '已复制 RGB。'),
+                ),
+                _ColorResultTile(
+                  label: 'RGBA',
+                  value: result.rgba,
+                  onCopy: () => onCopyValue(result.rgba, '已复制 RGBA。'),
+                ),
+                _ColorResultTile(
+                  label: 'HSL',
+                  value: result.hsl,
+                  onCopy: () => onCopyValue(result.hsl, '已复制 HSL。'),
+                ),
+                _ColorResultTile(
+                  label: 'HSV',
+                  value: result.hsv,
+                  onCopy: () => onCopyValue(result.hsv, '已复制 HSV。'),
+                ),
+                _ColorResultTile(
+                  label: 'CMYK',
+                  value: result.cmyk,
+                  onCopy: () => onCopyValue(result.cmyk, '已复制 CMYK。'),
+                ),
+                _ColorResultTile(
+                  label: 'Flutter',
+                  value: result.flutterColor,
+                  onCopy: () =>
+                      onCopyValue(result.flutterColor, '已复制 Flutter Color。'),
+                ),
+                const SizedBox(height: 8),
+                const _ColorResultGroupTitle('标注模板'),
+                _ColorResultTile(
+                  label: 'CSS 变量',
+                  value: result.cssVariable,
+                  onCopy: () => onCopyValue(result.cssVariable, '已复制 CSS 变量。'),
+                ),
+                _ColorResultTile(
+                  label: 'Flutter 常量',
+                  value: result.flutterConst,
+                  onCopy: () =>
+                      onCopyValue(result.flutterConst, '已复制 Flutter 常量。'),
+                ),
+                _ColorResultTile(
+                  label: 'Swift UIColor',
+                  value: result.swiftUIColor,
+                  onCopy: () =>
+                      onCopyValue(result.swiftUIColor, '已复制 Swift UIColor。'),
+                ),
+                _ColorResultTile(
+                  label: 'Android XML',
+                  value: result.androidColor,
+                  onCopy: () =>
+                      onCopyValue(result.androidColor, '已复制 Android XML。'),
+                ),
+              ],
+            ),
           ),
         ),
       ],
