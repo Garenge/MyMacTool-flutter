@@ -115,28 +115,62 @@ lib/
   app.dart
   main.dart
   pages/
-    encoding_converter_page.dart
-    hash_calculator_page.dart
-    image_file_info.dart
-    image_info_page.dart
-    ipa_app_info.dart
-    ipa_unpack_page.dart
-    json_formatter_page.dart
-    jwt_decoder_page.dart
-    lottie_preview_page.dart
-    mobileprovision_profile_info.dart
-    mobileprovision_profile_page.dart
-    plist_document_info.dart
-    plist_document_page.dart
-    qr_code_tool_page.dart
-    radix_converter_page.dart
-    random_string_generator_page.dart
-    regex_tester_page.dart
-    svg_preview_page.dart
-    text_diff_page.dart
-    timestamp_converter_page.dart
-    color_converter_page.dart
-    tool_shell_page.dart
+    converters/
+      color_converter_page.dart
+      color_palette_picker.dart
+      encoding_converter_page.dart
+      hash_calculator_page.dart
+      radix_converter_page.dart
+      timestamp_converter_page.dart
+    generator/
+      random_string_generator_page.dart
+    media/
+      ffprobe_runtime.dart
+      image_file_info.dart
+      image_info_page.dart
+      media_file_info.dart
+      media_info_page.dart
+    mobile/
+      ipa_archive_extractor.dart
+      ipa_app_info.dart
+      ipa_unpack_page.dart
+      mobileprovision_profile_diagnostics.dart
+      mobileprovision_profile_info.dart
+      mobileprovision_profile_page.dart
+      plist_document_info.dart
+      plist_document_page.dart
+      x509_certificate_info.dart
+    preview/
+      lottie_file_info.dart
+      lottie_preview_page.dart
+      svg_preview_document.dart
+      svg_preview_page.dart
+    qr/
+      qr_code_decode_source.dart
+      qr_code_image_decoder.dart
+      qr_code_logo_info.dart
+      qr_code_tool_page.dart
+    shell/
+      tool_shell_page.dart
+    text/
+      json_formatter_page.dart
+      jwt_decoder_page.dart
+      regex_tester_page.dart
+      text_diff_page.dart
+  utils/
+    path_utils.dart
+test/
+  converters/
+  generator/
+  media/
+  mobile/
+    ipa_archive_extractor_test.dart
+  preview/
+  qr/
+  shell/
+  text/
+  utils/
+  test_helpers.dart
 ```
 
 ## 后续路线图
@@ -163,10 +197,12 @@ lib/
    - 优先服务 IPA、图片信息、Lottie、二维码、后续 plist/mobileprovision 页面
 2. 拆分巨型页面
    - `svg_preview_page.dart`、`qr_code_tool_page.dart`、`ipa_unpack_page.dart`、`lottie_preview_page.dart` 已接近或超过 900 行
-   - 后续修改相关页面时，优先拆出 parser、model、result view、toolbar 等私有模块
+   - 已先按功能域整理 `lib/pages` 和 `test` 目录，并抽出 Lottie 文件收集 / 摘要逻辑、SVG 文档格式化逻辑、二维码剪贴板解析源和图片解码逻辑
+   - 后续继续拆出 parser、model、result view、toolbar 等私有模块，优先处理 `qr_code_tool_page.dart`、`svg_preview_page.dart`、`mobileprovision_profile_page.dart`、`ipa_unpack_page.dart`
 3. 拓展测试覆盖
    - 为解析类工具补充纯 Dart parser 单元测试
    - 为拖拽、粘贴、复制等桌面交互保留关键 widget 测试
+   - 后续将移动端测试里的 Profile / Plist 构造数据继续抽成 fixture，降低 widget 测试文件长度
 
 ## 本地运行
 

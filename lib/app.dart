@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'pages/tool_shell_page.dart';
+import 'pages/shell/tool_shell_page.dart';
 
 class MyToolsApp extends StatelessWidget {
   const MyToolsApp({super.key});
