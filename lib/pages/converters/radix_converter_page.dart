@@ -16,6 +16,18 @@ class _ParsedRadixValue {
   final int bitWidth;
 }
 
+class _BatchConversionResult {
+  const _BatchConversionResult({
+    required this.sourceText,
+    required this.targetText,
+    required this.errorText,
+  });
+
+  final String sourceText;
+  final String targetText;
+  final String? errorText;
+}
+
 class RadixConverterPage extends StatefulWidget {
   const RadixConverterPage({super.key});
 
@@ -99,22 +111,51 @@ class _RadixConverterPageState extends State<RadixConverterPage> {
       return;
     }
 
-    try {
-      final parsedValue = _parseValue(rawText, sourceFormat);
-      final formattedSource = _formatValue(sourceFormat, parsedValue);
-      final formattedTarget = _formatValue(targetFormat, parsedValue);
+    final result = _convertText(rawText, sourceFormat, targetFormat);
 
-      setState(() {
-        _updateControllerText(sourceController, formattedSource);
-        _updateControllerText(targetController, formattedTarget);
-        _lastEditedSide = sourceSide;
-        _errorText = null;
-      });
-    } on FormatException catch (error) {
-      setState(() {
-        _errorText = error.message;
-      });
+    setState(() {
+      _updateControllerText(sourceController, result.sourceText);
+      _updateControllerText(targetController, result.targetText);
+      _lastEditedSide = sourceSide;
+      _errorText = result.errorText;
+    });
+  }
+
+  _BatchConversionResult _convertText(
+    String rawText,
+    _RadixFormat sourceFormat,
+    _RadixFormat targetFormat,
+  ) {
+    final sourceLines = <String>[];
+    final targetLines = <String>[];
+    final errors = <String>[];
+    final lines = rawText.split(RegExp(r'\r\n?|\n'));
+
+    for (var index = 0; index < lines.length; index++) {
+      final line = lines[index];
+
+      if (line.trim().isEmpty) {
+        sourceLines.add('');
+        targetLines.add('');
+        continue;
+      }
+
+      try {
+        final parsedValue = _parseValue(line, sourceFormat);
+        sourceLines.add(_formatValue(sourceFormat, parsedValue));
+        targetLines.add(_formatValue(targetFormat, parsedValue));
+      } on FormatException catch (error) {
+        sourceLines.add(line);
+        targetLines.add('');
+        errors.add('第 ${index + 1} 行：${error.message}');
+      }
     }
+
+    return _BatchConversionResult(
+      sourceText: sourceLines.join('\n'),
+      targetText: targetLines.join('\n'),
+      errorText: errors.isEmpty ? null : '以下行转换失败：\n${errors.join('\n')}',
+    );
   }
 
   void _handleClear() {
@@ -410,7 +451,7 @@ class _RadixConverterPageState extends State<RadixConverterPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          '支持十六进制、十进制无符号、十进制有符号和二进制互转，转换时会自动忽略空格、逗号、下划线等分隔符。',
+          '支持十六进制、十进制无符号、十进制有符号和二进制互转，转换时会自动忽略空格、逗号、下划线等分隔符；输入多行内容可按行批量转换。',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: const Color(0xFF607180),
           ),
@@ -476,6 +517,7 @@ class _RadixConverterPageState extends State<RadixConverterPage> {
             const _InfoChip(label: '十六进制输出按字节补齐并空格分组'),
             const _InfoChip(label: '二进制输出按 4 位或 8 位自动分组'),
             const _InfoChip(label: '十进制输出自动加千分位逗号'),
+            const _InfoChip(label: '多行输入按行转换并保留空行'),
           ],
         ),
         if (_errorText != null) ...[
@@ -520,20 +562,34 @@ class _ConverterInputPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SegmentedButton<_RadixFormat>(
-              segments: _RadixFormat.values
-                  .map(
-                    (_RadixFormat value) => ButtonSegment<_RadixFormat>(
-                      value: value,
-                      label: Text(value.label),
-                    ),
-                  )
-                  .toList(growable: false),
-              selected: <_RadixFormat>{selectedFormat},
-              onSelectionChanged: (Set<_RadixFormat> selection) {
-                onFormatSelected(selection.first);
+            LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                if (constraints.maxWidth < 430) {
+                  return _CompactFormatSelector(
+                    selectedFormat: selectedFormat,
+                    onFormatSelected: onFormatSelected,
+                  );
+                }
+
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<_RadixFormat>(
+                    segments: _RadixFormat.values
+                        .map(
+                          (_RadixFormat value) => ButtonSegment<_RadixFormat>(
+                            value: value,
+                            label: Text(value.label),
+                          ),
+                        )
+                        .toList(growable: false),
+                    selected: <_RadixFormat>{selectedFormat},
+                    onSelectionChanged: (Set<_RadixFormat> selection) {
+                      onFormatSelected(selection.first);
+                    },
+                    showSelectedIcon: false,
+                  ),
+                );
               },
-              showSelectedIcon: false,
             ),
             const SizedBox(height: 14),
             Expanded(
@@ -573,6 +629,46 @@ class _ConverterInputPanel extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactFormatSelector extends StatelessWidget {
+  const _CompactFormatSelector({
+    required this.selectedFormat,
+    required this.onFormatSelected,
+  });
+
+  final _RadixFormat selectedFormat;
+  final ValueChanged<_RadixFormat> onFormatSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return InputDecorator(
+      decoration: const InputDecoration(
+        labelText: '输入格式',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<_RadixFormat>(
+          value: selectedFormat,
+          isExpanded: true,
+          items: _RadixFormat.values
+              .map(
+                (_RadixFormat value) => DropdownMenuItem<_RadixFormat>(
+                  value: value,
+                  child: Text(value.label),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (value) {
+            if (value != null) {
+              onFormatSelected(value);
+            }
+          },
         ),
       ),
     );

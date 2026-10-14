@@ -9,6 +9,55 @@ import '../test_helpers.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('radix converter converts multiple lines independently', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '进制换算');
+
+    await tester.enterText(find.byType(TextField).first, '0F\n10\nFF');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    final textFields = find.byType(TextField);
+    expect(
+      tester.widget<TextField>(textFields.first).controller!.text,
+      '0F\n10\nFF',
+    );
+    expect(
+      tester.widget<TextField>(textFields.last).controller!.text,
+      '15\n16\n255',
+    );
+  });
+
+  testWidgets('radix converter keeps valid batch lines when one line fails', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyToolsApp());
+    await selectTool(tester, '进制换算');
+
+    await tester.enterText(find.byType(TextField).first, '0F\nZZ\n10');
+    await tester.tap(find.text('转换'));
+    await tester.pumpAndSettle();
+
+    final textFields = find.byType(TextField);
+    expect(
+      tester.widget<TextField>(textFields.last).controller!.text,
+      '15\n\n16',
+    );
+    expect(find.textContaining('第 2 行：'), findsOneWidget);
+  });
+
   testWidgets('encoding converter converts plain text to url encoded text', (
     WidgetTester tester,
   ) async {
