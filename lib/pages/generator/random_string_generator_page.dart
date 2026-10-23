@@ -1,7 +1,7 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'random_value_generator.dart';
 
 class RandomStringGeneratorPage extends StatefulWidget {
   const RandomStringGeneratorPage({super.key});
@@ -12,12 +12,7 @@ class RandomStringGeneratorPage extends StatefulWidget {
 }
 
 class _RandomStringGeneratorPageState extends State<RandomStringGeneratorPage> {
-  static const String _lowerChars = 'abcdefghijklmnopqrstuvwxyz';
-  static const String _upperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  static const String _digitChars = '0123456789';
-  static const String _symbolChars = r'!@#$%^&*_-+=';
-
-  final Random _random = Random.secure();
+  final RandomValueGenerator _generator = RandomValueGenerator();
   int _uuidCount = 5;
   int _randomCount = 5;
   int _randomLength = 16;
@@ -31,31 +26,29 @@ class _RandomStringGeneratorPageState extends State<RandomStringGeneratorPage> {
 
   void _generateUuids() {
     setState(() {
-      _results = List<String>.generate(_uuidCount, (_) => _buildUuidV4());
+      _results = _generator.generateUuids(_uuidCount);
       _statusText = '已生成 $_uuidCount 个 UUID v4。';
       _errorText = null;
     });
   }
 
   void _generateRandomStrings() {
-    final pool = _buildCharacterPool();
-
-    if (pool.isEmpty) {
+    try {
       setState(() {
-        _errorText = '请至少选择一种字符类型。';
+        _results = _generator.generateStrings(
+          count: _randomCount,
+          length: _randomLength,
+          options: _characterOptions,
+        );
+        _statusText = '已生成 $_randomCount 个随机字符串。';
+        _errorText = null;
+      });
+    } on FormatException catch (error) {
+      setState(() {
+        _errorText = error.message;
         _statusText = null;
       });
-      return;
     }
-
-    setState(() {
-      _results = List<String>.generate(
-        _randomCount,
-        (_) => _buildRandomString(pool),
-      );
-      _statusText = '已生成 $_randomCount 个随机字符串。';
-      _errorText = null;
-    });
   }
 
   Future<void> _copyAll() async {
@@ -100,36 +93,12 @@ class _RandomStringGeneratorPageState extends State<RandomStringGeneratorPage> {
     });
   }
 
-  String _buildCharacterPool() {
-    return [
-      if (_includeLowercase) _lowerChars,
-      if (_includeUppercase) _upperChars,
-      if (_includeDigits) _digitChars,
-      if (_includeSymbols) _symbolChars,
-    ].join();
-  }
-
-  String _buildRandomString(String pool) {
-    return List<String>.generate(
-      _randomLength,
-      (_) => pool[_random.nextInt(pool.length)],
-    ).join();
-  }
-
-  String _buildUuidV4() {
-    final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
-    bytes[6] = (bytes[6] & 0x0F) | 0x40;
-    bytes[8] = (bytes[8] & 0x3F) | 0x80;
-    final hex = bytes
-        .map((int byte) => byte.toRadixString(16).padLeft(2, '0'))
-        .join();
-
-    return '${hex.substring(0, 8)}-'
-        '${hex.substring(8, 12)}-'
-        '${hex.substring(12, 16)}-'
-        '${hex.substring(16, 20)}-'
-        '${hex.substring(20)}';
-  }
+  RandomCharacterOptions get _characterOptions => RandomCharacterOptions(
+    includeLowercase: _includeLowercase,
+    includeUppercase: _includeUppercase,
+    includeDigits: _includeDigits,
+    includeSymbols: _includeSymbols,
+  );
 
   void _setUuidCount(double value) {
     setState(() {

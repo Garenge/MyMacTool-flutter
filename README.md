@@ -141,6 +141,7 @@ lib/
       radix_converter_page.dart
       timestamp_converter_page.dart
     generator/
+      random_value_generator.dart
       random_string_generator_page.dart
     media/
       ffprobe_runtime.dart
@@ -176,6 +177,7 @@ lib/
     text/
       json_formatter_page.dart
       jwt_decoder_page.dart
+      line_diff.dart
       regex_tester_page.dart
       text_diff_page.dart
   utils/

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'line_diff.dart';
+
 class TextDiffPage extends StatefulWidget {
   const TextDiffPage({super.key});
 
@@ -9,9 +11,11 @@ class TextDiffPage extends StatefulWidget {
 }
 
 class _TextDiffPageState extends State<TextDiffPage> {
+  static const LineDiffCalculator _diffCalculator = LineDiffCalculator();
+
   final TextEditingController _leftController = TextEditingController();
   final TextEditingController _rightController = TextEditingController();
-  List<_DiffLine> _diffLines = const <_DiffLine>[];
+  List<DiffLine> _diffLines = const <DiffLine>[];
   String? _statusText;
   String? _errorText;
 
@@ -28,16 +32,16 @@ class _TextDiffPageState extends State<TextDiffPage> {
 
     if (leftText.isEmpty && rightText.isEmpty) {
       setState(() {
-        _diffLines = const <_DiffLine>[];
+        _diffLines = const <DiffLine>[];
         _errorText = '请先输入需要对比的文本。';
         _statusText = null;
       });
       return;
     }
 
-    final diffLines = _buildLineDiff(leftText, rightText);
+    final diffLines = _diffCalculator.buildLineDiff(leftText, rightText);
     final changedCount = diffLines
-        .where((_DiffLine line) => line.type != _DiffLineType.equal)
+        .where((DiffLine line) => line.type != DiffLineType.equal)
         .length;
 
     setState(() {
@@ -58,7 +62,9 @@ class _TextDiffPageState extends State<TextDiffPage> {
       return;
     }
 
-    await Clipboard.setData(ClipboardData(text: _formatDiffText(_diffLines)));
+    await Clipboard.setData(
+      ClipboardData(text: _diffCalculator.formatDiffText(_diffLines)),
+    );
 
     if (!mounted) {
       return;
@@ -74,122 +80,10 @@ class _TextDiffPageState extends State<TextDiffPage> {
     setState(() {
       _leftController.clear();
       _rightController.clear();
-      _diffLines = const <_DiffLine>[];
+      _diffLines = const <DiffLine>[];
       _statusText = null;
       _errorText = null;
     });
-  }
-
-  List<_DiffLine> _buildLineDiff(String leftText, String rightText) {
-    final leftLines = leftText.split('\n');
-    final rightLines = rightText.split('\n');
-    final table = List<List<int>>.generate(
-      leftLines.length + 1,
-      (_) => List<int>.filled(rightLines.length + 1, 0),
-    );
-
-    for (var leftIndex = leftLines.length - 1; leftIndex >= 0; leftIndex -= 1) {
-      for (
-        var rightIndex = rightLines.length - 1;
-        rightIndex >= 0;
-        rightIndex -= 1
-      ) {
-        if (leftLines[leftIndex] == rightLines[rightIndex]) {
-          table[leftIndex][rightIndex] =
-              table[leftIndex + 1][rightIndex + 1] + 1;
-          continue;
-        }
-
-        table[leftIndex][rightIndex] =
-            table[leftIndex + 1][rightIndex] >= table[leftIndex][rightIndex + 1]
-            ? table[leftIndex + 1][rightIndex]
-            : table[leftIndex][rightIndex + 1];
-      }
-    }
-
-    return _backtrackDiff(leftLines, rightLines, table);
-  }
-
-  List<_DiffLine> _backtrackDiff(
-    List<String> leftLines,
-    List<String> rightLines,
-    List<List<int>> table,
-  ) {
-    final diffLines = <_DiffLine>[];
-    var leftIndex = 0;
-    var rightIndex = 0;
-
-    while (leftIndex < leftLines.length && rightIndex < rightLines.length) {
-      if (leftLines[leftIndex] == rightLines[rightIndex]) {
-        diffLines.add(
-          _DiffLine(
-            type: _DiffLineType.equal,
-            leftLineNumber: leftIndex + 1,
-            rightLineNumber: rightIndex + 1,
-            text: leftLines[leftIndex],
-          ),
-        );
-        leftIndex += 1;
-        rightIndex += 1;
-        continue;
-      }
-
-      if (table[leftIndex + 1][rightIndex] >=
-          table[leftIndex][rightIndex + 1]) {
-        diffLines.add(
-          _DiffLine(
-            type: _DiffLineType.removed,
-            leftLineNumber: leftIndex + 1,
-            rightLineNumber: null,
-            text: leftLines[leftIndex],
-          ),
-        );
-        leftIndex += 1;
-        continue;
-      }
-
-      diffLines.add(
-        _DiffLine(
-          type: _DiffLineType.added,
-          leftLineNumber: null,
-          rightLineNumber: rightIndex + 1,
-          text: rightLines[rightIndex],
-        ),
-      );
-      rightIndex += 1;
-    }
-
-    while (leftIndex < leftLines.length) {
-      diffLines.add(
-        _DiffLine(
-          type: _DiffLineType.removed,
-          leftLineNumber: leftIndex + 1,
-          rightLineNumber: null,
-          text: leftLines[leftIndex],
-        ),
-      );
-      leftIndex += 1;
-    }
-
-    while (rightIndex < rightLines.length) {
-      diffLines.add(
-        _DiffLine(
-          type: _DiffLineType.added,
-          leftLineNumber: null,
-          rightLineNumber: rightIndex + 1,
-          text: rightLines[rightIndex],
-        ),
-      );
-      rightIndex += 1;
-    }
-
-    return diffLines;
-  }
-
-  String _formatDiffText(List<_DiffLine> diffLines) {
-    return diffLines
-        .map((_DiffLine line) => '${line.type.prefix} ${line.text}')
-        .join('\n');
   }
 
   @override
@@ -340,7 +234,7 @@ class _DiffTextField extends StatelessWidget {
 class _DiffResultPanel extends StatelessWidget {
   const _DiffResultPanel({required this.diffLines});
 
-  final List<_DiffLine> diffLines;
+  final List<DiffLine> diffLines;
 
   @override
   Widget build(BuildContext context) {
@@ -384,7 +278,7 @@ class _DiffResultPanel extends StatelessWidget {
 class _DiffLineTile extends StatelessWidget {
   const _DiffLineTile({required this.line});
 
-  final _DiffLine line;
+  final DiffLine line;
 
   @override
   Widget build(BuildContext context) {
@@ -484,40 +378,37 @@ class _MutedText extends StatelessWidget {
   }
 }
 
-class _DiffLine {
-  const _DiffLine({
-    required this.type,
-    required this.leftLineNumber,
-    required this.rightLineNumber,
-    required this.text,
-  });
-
-  final _DiffLineType type;
-  final int? leftLineNumber;
-  final int? rightLineNumber;
-  final String text;
-
-  String get lineLabel {
-    final left = leftLineNumber?.toString() ?? '-';
-    final right = rightLineNumber?.toString() ?? '-';
-    return '$left / $right';
+extension _DiffLineTypeStyle on DiffLineType {
+  Color get backgroundColor {
+    switch (this) {
+      case DiffLineType.equal:
+        return const Color(0xFFFFFFFF);
+      case DiffLineType.added:
+        return const Color(0xFFEAF7F6);
+      case DiffLineType.removed:
+        return const Color(0xFFFFEEF2);
+    }
   }
-}
 
-enum _DiffLineType {
-  equal(' ', Color(0xFFFFFFFF), Color(0xFFD8E2E8), Color(0xFF607180)),
-  added('+', Color(0xFFEAF7F6), Color(0xFFD1E8E4), Color(0xFF0F766E)),
-  removed('-', Color(0xFFFFEEF2), Color(0xFFFFCCD5), Color(0xFF9F1239));
+  Color get borderColor {
+    switch (this) {
+      case DiffLineType.equal:
+        return const Color(0xFFD8E2E8);
+      case DiffLineType.added:
+        return const Color(0xFFD1E8E4);
+      case DiffLineType.removed:
+        return const Color(0xFFFFCCD5);
+    }
+  }
 
-  const _DiffLineType(
-    this.prefix,
-    this.backgroundColor,
-    this.borderColor,
-    this.foregroundColor,
-  );
-
-  final String prefix;
-  final Color backgroundColor;
-  final Color borderColor;
-  final Color foregroundColor;
+  Color get foregroundColor {
+    switch (this) {
+      case DiffLineType.equal:
+        return const Color(0xFF607180);
+      case DiffLineType.added:
+        return const Color(0xFF0F766E);
+      case DiffLineType.removed:
+        return const Color(0xFF9F1239);
+    }
+  }
 }
