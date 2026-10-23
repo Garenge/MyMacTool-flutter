@@ -18,7 +18,7 @@ void main() {
     expect(find.text('压缩'), findsOneWidget);
     expect(find.text('校验'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, '{"b":2,"a":1}');
+    await tester.enterText(toolTextFields().first, '{"b":2,"a":1}');
     await tester.tap(find.text('格式化'));
     await tester.pumpAndSettle();
 
@@ -32,7 +32,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, 'JSON格式化');
 
-    await tester.enterText(find.byType(TextField).first, '{"name":}');
+    await tester.enterText(toolTextFields().first, '{"name":}');
     await tester.tap(find.text('校验'));
     await tester.pumpAndSettle();
 
@@ -58,7 +58,7 @@ void main() {
     expect(find.text('JWT'), findsOneWidget);
     expect(find.text('Header'), findsNothing);
 
-    await tester.enterText(find.byType(TextField).first, jwt);
+    await tester.enterText(toolTextFields().first, jwt);
     await tester.tap(find.text('解析'));
     await tester.pumpAndSettle();
 
@@ -83,7 +83,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, 'JWT解析');
 
-    await tester.enterText(find.byType(TextField).first, 'invalid-token');
+    await tester.enterText(toolTextFields().first, 'invalid-token');
     await tester.tap(find.text('解析'));
     await tester.pumpAndSettle();
 
@@ -104,7 +104,7 @@ void main() {
     expect(find.text('正则表达式'), findsOneWidget);
     expect(find.text('匹配结果和替换预览会显示在这里。'), findsOneWidget);
 
-    final fields = find.byType(TextField);
+    final fields = toolTextFields();
     await tester.enterText(fields.at(0), r'(\w+)');
     await tester.enterText(fields.at(1), 'foo bar');
     await tester.enterText(fields.at(2), 'X');
@@ -134,7 +134,7 @@ void main() {
     expect(find.text('右侧文本'), findsOneWidget);
     expect(find.text('对比结果会显示在这里。'), findsOneWidget);
 
-    final fields = find.byType(TextField);
+    final fields = toolTextFields();
     await tester.enterText(fields.at(0), 'a\nb\nc');
     await tester.enterText(fields.at(1), 'a\nx\nc');
     await tester.tap(find.text('对比'));

@@ -1,15 +1,24 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
+import 'package:mytools/pages/shell/tool_sidebar.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> selectTool(WidgetTester tester, String title) async {
-  final toolFinder = find.text(title);
+  final toolFinder = find.descendant(
+    of: find.byType(ToolSidebar),
+    matching: find.text(title),
+  );
 
   if (toolFinder.evaluate().isEmpty) {
     await tester.scrollUntilVisible(
       toolFinder,
       80,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find
+          .descendant(
+            of: find.byType(ToolSidebar),
+            matching: find.byType(Scrollable),
+          )
+          .last,
     );
     await tester.pumpAndSettle();
   }
@@ -60,3 +69,8 @@ void installClipboardTextMock(String text) {
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 }
+
+Finder toolTextFields() => find.descendant(
+  of: find.byKey(const ValueKey('tool-workspace')),
+  matching: find.byType(TextField),
+);

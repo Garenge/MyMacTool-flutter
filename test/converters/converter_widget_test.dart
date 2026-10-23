@@ -20,11 +20,11 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '进制换算');
 
-    await tester.enterText(find.byType(TextField).first, '0F\n10\nFF');
+    await tester.enterText(toolTextFields().first, '0F\n10\nFF');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
-    final textFields = find.byType(TextField);
+    final textFields = toolTextFields();
     expect(
       tester.widget<TextField>(textFields.first).controller!.text,
       '0F\n10\nFF',
@@ -46,11 +46,11 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '进制换算');
 
-    await tester.enterText(find.byType(TextField).first, '0F\nZZ\n10');
+    await tester.enterText(toolTextFields().first, '0F\nZZ\n10');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
-    final textFields = find.byType(TextField);
+    final textFields = toolTextFields();
     expect(
       tester.widget<TextField>(textFields.last).controller!.text,
       '15\n\n16',
@@ -67,7 +67,7 @@ void main() {
     expect(find.text('编码转换'), findsWidgets);
     expect(find.text('URL'), findsWidgets);
 
-    await tester.enterText(find.byType(TextField).first, 'Hello 世界');
+    await tester.enterText(toolTextFields().first, 'Hello 世界');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -80,10 +80,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '编码转换');
 
-    await tester.enterText(
-      find.byType(TextField).last,
-      'Hello%20%E4%B8%96%E7%95%8C',
-    );
+    await tester.enterText(toolTextFields().last, 'Hello%20%E4%B8%96%E7%95%8C');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -99,7 +96,7 @@ void main() {
     expect(find.text('当前时间'), findsOneWidget);
     expect(find.text('秒时间戳'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, '0');
+    await tester.enterText(toolTextFields().first, '0');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -115,7 +112,7 @@ void main() {
     await selectTool(tester, '时间戳转换');
 
     await tester.enterText(
-      find.byType(TextField).first,
+      toolTextFields().first,
       '999999999999999999999999999999',
     );
     await tester.tap(find.text('转换'));
@@ -138,7 +135,7 @@ void main() {
     expect(find.text('颜色值'), findsOneWidget);
     expect(find.text('HEX'), findsNothing);
 
-    await tester.enterText(find.byType(TextField).first, '#0F766E');
+    await tester.enterText(toolTextFields().first, '#0F766E');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -181,10 +178,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '颜色转换');
 
-    await tester.enterText(
-      find.byType(TextField).first,
-      'rgba(15, 118, 110, 0.5)',
-    );
+    await tester.enterText(toolTextFields().first, 'rgba(15, 118, 110, 0.5)');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -209,7 +203,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '颜色转换');
 
-    await tester.enterText(find.byType(TextField).first, '#0F766E80');
+    await tester.enterText(toolTextFields().first, '#0F766E80');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -233,7 +227,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '颜色转换');
 
-    await tester.enterText(find.byType(TextField).first, 'Color(0x800F766E)');
+    await tester.enterText(toolTextFields().first, 'Color(0x800F766E)');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -248,7 +242,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '颜色转换');
 
-    await tester.enterText(find.byType(TextField).first, '#XYZ');
+    await tester.enterText(toolTextFields().first, '#XYZ');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -276,7 +270,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final textField = tester.widget<TextField>(find.byType(TextField).first);
+    final textField = tester.widget<TextField>(toolTextFields().first);
     expect(textField.controller?.text, startsWith('#'));
     expect(find.text('已从颜色盘选取。'), findsOneWidget);
     expect(find.text('HEX'), findsOneWidget);
@@ -293,7 +287,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
     await selectTool(tester, '颜色转换');
 
-    await tester.enterText(find.byType(TextField).first, '#336699');
+    await tester.enterText(toolTextFields().first, '#336699');
     await tester.tap(find.text('转换'));
     await tester.pumpAndSettle();
 
@@ -321,7 +315,7 @@ void main() {
     expect(find.text('输入文本'), findsOneWidget);
     expect(find.text('MD5'), findsNothing);
 
-    await tester.enterText(find.byType(TextField).first, 'abc');
+    await tester.enterText(toolTextFields().first, 'abc');
     await tester.tap(find.text('计算'));
     await tester.pumpAndSettle();
 

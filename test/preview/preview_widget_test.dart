@@ -42,7 +42,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
 
     await tester.enterText(
-      find.byType(TextField),
+      toolTextFields(),
       '<svg viewBox="0 0 24 24"><rect width="24" height="24" fill="#0F766E"/></svg>',
     );
     await tester.tap(find.text('确定'));
@@ -57,7 +57,7 @@ void main() {
       await tester.pumpWidget(const MyToolsApp());
 
       await tester.enterText(
-        find.byType(TextField),
+        toolTextFields(),
         '<svg viewBox="0 0 24 24"><rect width="24" height="24" fill="#0F766E"/></svg>',
       );
       await tester.tap(find.text('确定'));
@@ -91,7 +91,7 @@ void main() {
     await tester.pumpWidget(const MyToolsApp());
 
     await tester.enterText(
-      find.byType(TextField),
+      toolTextFields(),
       '<svg viewBox="0 0 24 24"><rect width="24" height="24" fill="#0F766E"/></svg>',
     );
     await tester.tap(find.text('确定'));

@@ -39,7 +39,7 @@ void main() {
     expect(find.text('支持粘贴、拖拽或选择二维码图片。'), findsNothing);
     expect(find.text('输入字符串后会在这里生成二维码。'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, 'Hello 世界');
+    await tester.enterText(toolTextFields().first, 'Hello 世界');
     await tester.pumpAndSettle();
 
     expect(find.byType(QrImageView), findsOneWidget);

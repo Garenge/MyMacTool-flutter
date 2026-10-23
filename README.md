@@ -4,7 +4,11 @@ MyTools 是一个基于 Flutter 的桌面工具集合项目，目前主要面向
 
 ## 项目定位
 
-MyTools 适合承载日常开发、设计协作、移动端包体排查相关的小工具。当前应用采用左侧工具导航 + 右侧工作区的结构，适合继续按独立页面追加功能。
+MyTools 适合承载日常开发、设计协作、移动端包体排查相关的小工具。当前应用采用左侧分类工具导航 + 右侧工作区的结构，适合继续按独立页面追加功能。
+
+左侧入口按「文本与数据」「转换与校验」「图像与媒体」「Apple 开发」「生成工具」固定分组，支持折叠分类。顶部搜索支持工具名称和常用别名（如 `base64`、`md5`、`uuid`），可用 `⌘K` 聚焦、`Esc` 清空并退出搜索；跨工具跳转会自动展开并定位对应入口。
+
+macOS 每次启动时，窗口按所在屏幕的可用区域展开，四周保留少量间距并避开菜单栏和 Dock，保持普通窗口，可继续手动移动和缩放。
 
 ## 当前功能
 
@@ -165,7 +169,10 @@ lib/
       qr_code_logo_info.dart
       qr_code_tool_page.dart
     shell/
+      tool_catalog.dart
       tool_shell_page.dart
+      tool_sidebar.dart
+      tool_sidebar_item.dart
     text/
       json_formatter_page.dart
       jwt_decoder_page.dart
