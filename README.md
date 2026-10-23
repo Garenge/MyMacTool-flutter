@@ -38,6 +38,13 @@ MyTools 适合承载日常开发、设计协作、移动端包体排查相关的
 - Hash 计算
   - 支持对文本计算 MD5、SHA-1、SHA-256、SHA-512 摘要
   - 支持单项结果复制
+- CRC 校验
+  - 支持 CRC16/MODBUS、ARC（IBM）、CCITT-FALSE、XMODEM、KERMIT、X-25
+  - 支持 CRC8（SMBUS）、MAXIM、ROHC
+  - 支持 UTF-8 文本、连续或空白分隔的十六进制字节输入，并提示非法字符和不完整字节
+  - 支持「CRC 类型」「算法类型」两个联动下拉框，算法列表只显示对应类型；默认 CRC16/MODBUS，切换到 CRC8 默认 SMBUS
+  - 只展示所选算法结果，已有结果时切换 CRC 类型或算法会保留输入并自动重新计算
+  - 校验值以大写十六进制展示，CRC16 额外展示高字节在前、低字节在前的字节序，支持单项复制；清空输入保留算法选择
 - 图片信息
   - 支持选择或拖拽图片查看宽高、格式、文件大小、帧数
   - 支持透明通道和透明像素判断、复制图片路径和图片摘要
@@ -119,6 +126,12 @@ lib/
     converters/
       color_converter_page.dart
       color_palette_picker.dart
+      crc_algorithm.dart
+      crc_algorithm_selector.dart
+      crc_calculator_page.dart
+      crc_input.dart
+      crc_input_panel.dart
+      crc_result_card.dart
       encoding_converter_page.dart
       hash_calculator_page.dart
       radix_converter_page.dart

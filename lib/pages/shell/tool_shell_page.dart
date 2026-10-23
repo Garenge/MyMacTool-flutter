@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../converters/color_converter_page.dart';
+import '../converters/crc_calculator_page.dart';
 import '../converters/encoding_converter_page.dart';
 import '../converters/hash_calculator_page.dart';
 import '../converters/radix_converter_page.dart';
@@ -32,6 +33,7 @@ enum ToolItem {
   timestampConverter,
   colorConverter,
   hashCalculator,
+  crcCalculator,
   imageInfo,
   mediaInfo,
   jwtDecoder,
@@ -110,6 +112,13 @@ const List<_ToolDefinition> _toolDefinitions = [
     icon: Icons.tag_rounded,
     pageFile: 'lib/pages/converters/hash_calculator_page.dart',
     pageClass: 'HashCalculatorPage',
+  ),
+  _ToolDefinition(
+    tool: ToolItem.crcCalculator,
+    title: 'CRC校验',
+    icon: Icons.fact_check_rounded,
+    pageFile: 'lib/pages/converters/crc_calculator_page.dart',
+    pageClass: 'CrcCalculatorPage',
   ),
   _ToolDefinition(
     tool: ToolItem.imageInfo,
@@ -311,6 +320,8 @@ class _ToolShellPageState extends State<ToolShellPage> {
         return const ColorConverterPage();
       case ToolItem.hashCalculator:
         return const HashCalculatorPage();
+      case ToolItem.crcCalculator:
+        return const CrcCalculatorPage();
       case ToolItem.imageInfo:
         return const ImageInfoPage();
       case ToolItem.mediaInfo:

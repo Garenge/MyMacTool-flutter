@@ -19,9 +19,14 @@ void main() {
     expect(find.text('时间戳转换'), findsOneWidget);
     expect(find.text('颜色转换'), findsOneWidget);
     expect(find.text('Hash计算'), findsOneWidget);
+    expect(find.text('CRC校验'), findsOneWidget);
     expect(find.text('图片信息'), findsOneWidget);
     expect(find.text('音视频信息'), findsOneWidget);
-    expect(find.text('JWT解析'), findsOneWidget);
+    await expectVisibleText(
+      tester,
+      'JWT解析',
+      scrollable: find.byType(Scrollable).first,
+    );
     await expectVisibleText(
       tester,
       '二维码工具',

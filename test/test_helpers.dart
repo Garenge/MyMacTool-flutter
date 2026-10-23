@@ -14,6 +14,8 @@ Future<void> selectTool(WidgetTester tester, String title) async {
     await tester.pumpAndSettle();
   }
 
+  await tester.ensureVisible(toolFinder);
+  await tester.pumpAndSettle();
   await tester.tap(toolFinder);
   await tester.pumpAndSettle();
 }
