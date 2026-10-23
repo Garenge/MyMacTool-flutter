@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'json_tree_view.dart';
+
 enum _JsonAction { format, minify, validate }
 
 class JsonFormatterPage extends StatefulWidget {
@@ -20,6 +22,10 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
   bool _sortKeys = false;
   String? _statusText;
   String? _errorText;
+  Object? _resultValue;
+  String? _resultInput;
+  bool _showTree = false;
+  int _resultRevision = 0;
 
   @override
   void dispose() {
@@ -41,10 +47,11 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
   }
 
   void _runJsonAction(_JsonAction action) {
-    final rawText = _inputController.text.trim();
+    final rawText = _inputController.text;
 
-    if (rawText.isEmpty) {
+    if (rawText.trim().isEmpty) {
       setState(() {
+        _resetResult();
         _errorText = '请先输入需要处理的 JSON 内容。';
         _statusText = null;
       });
@@ -60,11 +67,15 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
 
       setState(() {
         _outputController.text = result.outputText;
+        _resultValue = normalizedJson;
+        _resultInput = rawText;
+        _resultRevision++;
         _statusText = result.statusText;
         _errorText = null;
       });
     } on FormatException catch (error) {
       setState(() {
+        _resetResult();
         _errorText = _formatJsonError(error);
         _statusText = null;
       });
@@ -84,8 +95,8 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
           statusText: '压缩完成。',
         );
       case _JsonAction.validate:
-        return const _JsonActionResult(
-          outputText: 'JSON 校验通过。',
+        return _JsonActionResult(
+          outputText: _formatJson(value),
           statusText: 'JSON 校验通过。',
         );
     }
@@ -142,7 +153,7 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
   void _handleClear() {
     setState(() {
       _inputController.clear();
-      _outputController.clear();
+      _resetResult();
       _statusText = null;
       _errorText = null;
     });
@@ -155,7 +166,7 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
 
     setState(() {
       _inputController.text = _outputController.text;
-      _outputController.clear();
+      _resetResult();
       _statusText = '已将结果移入输入区。';
       _errorText = null;
     });
@@ -172,14 +183,18 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
       return;
     }
 
-    await Clipboard.setData(ClipboardData(text: outputText));
+    await _copyText(outputText, '已复制输出结果。');
+  }
+
+  Future<void> _copyText(String text, String message) async {
+    await Clipboard.setData(ClipboardData(text: text));
 
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _statusText = '已复制输出结果。';
+      _statusText = message;
       _errorText = null;
     });
   }
@@ -200,6 +215,51 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
     });
   }
 
+  void _resetResult() {
+    _outputController.clear();
+    _resultValue = null;
+    _resultInput = null;
+    _resultRevision++;
+  }
+
+  void _handleInputChanged(String value) {
+    setState(() {
+      _errorText = null;
+      _statusText = _resultInput == null
+          ? null
+          : (value == _resultInput ? '输入与当前结果一致。' : '输入已变更，请重新处理以更新结果。');
+    });
+  }
+
+  Widget _buildOutputPanel() {
+    final stale = _resultInput != null && _resultInput != _inputController.text;
+    return _JsonTextPanel(
+      title: stale ? '输出（待更新）' : '输出',
+      controller: _outputController,
+      hintText: '处理结果会显示在这里',
+      readOnly: true,
+      trailing: SegmentedButton<bool>(
+        segments: const [
+          ButtonSegment(value: false, label: Text('文本')),
+          ButtonSegment(value: true, label: Text('树形')),
+        ],
+        selected: {_showTree},
+        showSelectedIcon: false,
+        onSelectionChanged: (value) => setState(() => _showTree = value.first),
+      ),
+      content: _showTree
+          ? (_resultInput == null
+                ? const Center(child: Text('处理 JSON 后可查看树形结构'))
+                : JsonTreeView(
+                    key: ValueKey(_resultRevision),
+                    value: _resultValue,
+                    indentSpaces: _indentSpaces,
+                    onCopy: _copyText,
+                  ))
+          : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -216,7 +276,7 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          '支持 JSON 格式化、压缩、校验和 key 排序，解析错误会提示大致行列位置。',
+          '支持格式化、压缩、校验和 Key 排序；树形视图可展开节点并复制值或路径。',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: const Color(0xFF607180),
           ),
@@ -254,17 +314,11 @@ class _JsonFormatterPageState extends State<JsonFormatterPage> {
                             controller: _inputController,
                             hintText: '{"name":"MyTools","items":[1,2,3]}',
                             readOnly: false,
+                            onChanged: _handleInputChanged,
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Expanded(
-                          child: _JsonTextPanel(
-                            title: '输出',
-                            controller: _outputController,
-                            hintText: '处理结果会显示在这里',
-                            readOnly: true,
-                          ),
-                        ),
+                        Expanded(child: _buildOutputPanel()),
                       ],
                     ),
                   ),
@@ -375,12 +429,18 @@ class _JsonTextPanel extends StatelessWidget {
     required this.controller,
     required this.hintText,
     required this.readOnly,
+    this.trailing,
+    this.content,
+    this.onChanged,
   });
 
   final String title;
   final TextEditingController controller;
   final String hintText;
   final bool readOnly;
+  final Widget? trailing;
+  final Widget? content;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -395,48 +455,58 @@ class _JsonTextPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: const Color(0xFF31414F),
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                readOnly: readOnly,
-                expands: true,
-                maxLines: null,
-                minLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: InputDecoration(
-                  hintText: hintText,
-                  filled: true,
-                  fillColor: const Color(0xFFF7FAFB),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFD8E2E8)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFD8E2E8)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF7FB8B3),
-                      width: 1.4,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: const Color(0xFF31414F),
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                style: const TextStyle(
-                  fontFamily: 'Menlo',
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
+                ?trailing,
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child:
+                  content ??
+                  TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    readOnly: readOnly,
+                    expands: true,
+                    maxLines: null,
+                    minLines: null,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: InputDecoration(
+                      hintText: hintText,
+                      filled: true,
+                      fillColor: const Color(0xFFF7FAFB),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFD8E2E8)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFD8E2E8)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF7FB8B3),
+                          width: 1.4,
+                        ),
+                      ),
+                    ),
+                    style: const TextStyle(
+                      fontFamily: 'Menlo',
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
             ),
           ],
         ),
