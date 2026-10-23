@@ -29,6 +29,12 @@ void main() {
     expect(stripFileExtension('Archive.v1.ipa'), 'Archive.v1');
     expect(stripFileExtension('.env'), '.env');
     expect(stripFileExtension('README'), 'README');
+    expect(stripFileExtension('/tmp.v1/Sample.ipa'), '/tmp.v1/Sample');
+    expect(stripFileExtension('/tmp.v1/README'), '/tmp.v1/README');
+    expect(
+      stripFileExtension(r'C:\Users.v1\Sample.ipa'),
+      r'C:\Users.v1\Sample',
+    );
   });
 
   test('has file extension handles case and optional leading dot', () {
@@ -94,5 +100,10 @@ void main() {
     expect(formatByteSize(2 * 1024 * 1024), '2.00 MB');
     expect(formatByteSize(2 * 1024 * 1024, compact: true), '2.0MB');
     expect(formatByteSize(3 * 1024 * 1024 * 1024), '3.00 GB');
+    expect(formatByteSize(4 * 1024 * 1024 * 1024 * 1024), '4.00 TB');
+    expect(
+      formatByteSize(5 * 1024 * 1024 * 1024 * 1024, compact: true),
+      '5.0TB',
+    );
   });
 }

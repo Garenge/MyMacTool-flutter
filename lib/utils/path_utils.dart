@@ -22,9 +22,12 @@ String displayFileName(String path, {String emptyPlaceholder = ''}) {
 
 /// Returns the path without its final file extension.
 String stripFileExtension(String path) {
-  final dotIndex = path.lastIndexOf('.');
+  final normalized = path.replaceAll('\\', '/');
+  final separatorIndex = normalized.lastIndexOf('/');
+  final nameStartIndex = separatorIndex + 1;
+  final dotIndex = normalized.lastIndexOf('.');
 
-  if (dotIndex <= 0) {
+  if (dotIndex <= nameStartIndex) {
     return path;
   }
 
@@ -80,7 +83,7 @@ String formatByteSize(
     return emptyPlaceholder;
   }
 
-  const units = <String>['B', 'KB', 'MB', 'GB'];
+  const units = <String>['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
   var unitIndex = 0;
   var scaledValue = value.toDouble();
 
